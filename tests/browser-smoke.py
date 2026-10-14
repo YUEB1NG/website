@@ -1,0 +1,106 @@
+"""Browser checks through the agent-browser CLI; connect a disposable browser first."""
+import base64,json,pathlib,subprocess,shutil,sys
+
+root=pathlib.Path(__file__).resolve().parents[1]
+binary=root/'.tools/node_modules/agent-browser/bin/agent-browser-win32-x64.exe'
+cli=str(binary) if binary.exists() else shutil.which('agent-browser')
+if not cli: raise SystemExit('Install agent-browser and connect it to a disposable browser first.')
+out=root/'artifacts';out.mkdir(exist_ok=True)
+checks=[]
+
+def run(*args):
+    result=subprocess.run([cli,*args],capture_output=True,text=True,encoding='utf-8',cwd=root,timeout=35)
+    if result.returncode: raise AssertionError(result.stderr or result.stdout)
+    return result.stdout.strip()
+
+def js(source):
+    result=json.loads(run('eval','--json','-b',base64.b64encode(source.encode()).decode()))
+    assert result['success'], result
+    return result['data']['result']
+
+def check(name,expression):
+    value=js(expression)
+    assert value, f'{name}: {value}'
+    checks.append({'check':name,'passed':True})
+    print('PASS',name,flush=True)
+
+def wait(expression): run('wait','--fn',expression)
+
+try:
+    run('set','media','dark')
+    run('set','viewport','1440','960')
+    run('open',sys.argv[1] if len(sys.argv)>1 else 'http://127.0.0.1:5173/')
+    wait("window.wabi && window.wabi.state === 'rest'")
+    run('snapshot')
+    check('Real WebGL renderer',"window.wabi.renderer === 'webgl'")
+    check('Resting geometry',"Math.abs(window.wabi.position.y-innerHeight)<1 && window.wabi.position.radius===200")
+    # The upstream 46-particle sequence intentionally uses rainbow_black twice.
+    check('Original particle assets loaded',"new Set(performance.getEntriesByType('resource').filter(e=>e.name.includes('/bubbles/')).map(e=>e.name)).size===45")
+    check('Pedro font loaded',"document.fonts.check('28px \"Neue Montreal\"')")
+    run('screenshot',str(out/'desktop-rest.png'))
+    run('click','#back')
+    check('Replay locks controls',"document.querySelector('#wabi').inert && window.wabi.state==='intro'")
+    run('screenshot',str(out/'blueprint.png'))
+    check('Blueprint copies actual text geometry',"(()=>{const a=document.querySelector('#start').getBoundingClientRect(),b=document.querySelector('.draft-box.copy').getBoundingClientRect();return Math.abs(a.x-b.x)<1&&Math.abs(a.y-b.y)<1&&Math.abs(a.width-b.width)<1})()")
+    wait("window.wabi.state==='rest'")
+    check('Intro removes overlay and restores input',"document.querySelector('#blueprint').hidden && !document.querySelector('#wabi').inert")
+    run('click','#start')
+    wait('Math.abs(window.wabi.position.y-innerHeight*.4)<1')
+    check('Reveal spring destination',"window.wabi.state==='revealed' && Math.abs(window.wabi.position.radius-50)<1")
+    check('Reveal text keyboard-accessible',"!document.querySelector('#greeting').inert && !document.querySelector('#social').inert")
+    check('Night Earth texture loaded',"window.wabi.earth.ready")
+    rotation=js('window.wabi.earth.rotation')
+    js('new Promise(resolve=>setTimeout(()=>resolve(true),500))')
+    check('Night Earth rotates',f'window.wabi.earth.rotation>{rotation}')
+    check('Personal name and text',"document.querySelector('.english-name').textContent===\"I'm YUEB1NG\" && document.querySelector('.likes').textContent.includes('everything.')")
+    check('Personal X link',"document.querySelector('#social').href==='https://x.com/yueb1ng' && document.querySelector('#social').textContent.includes('@YUEB1NG')")
+    check('Provided avatar loaded',"document.querySelector('.avatar-ring img').complete && document.querySelector('.avatar-ring img').naturalWidth===1280")
+    run('mouse','move','20','940')
+    wait("document.querySelector('.name-line').classList.contains('profile')")
+    check('Avatar and Chinese name replace alternate script',"document.querySelector('.profile-name').getAttribute('aria-hidden')==='false' && document.querySelector('.profile-name').textContent==='悦饼' && !document.querySelector('.arabic-name')")
+    run('click','[data-reveal=word]')
+    wait("getComputedStyle(document.querySelector('#word-content')).filter==='blur(0px)'")
+    check('Click unblurs text',"document.querySelector('[data-reveal=word]').getAttribute('aria-expanded')==='true'")
+    run('hover','[data-reveal=word]')
+    wait("getComputedStyle(document.querySelector('[data-reveal=word]')).backgroundColor==='rgb(46, 111, 255)'")
+    check('Reveal hover is blueprint blue',"getComputedStyle(document.querySelector('[data-reveal=word]')).borderTopColor==='rgb(46, 111, 255)'")
+    run('click','[data-reveal=word]')
+    wait("getComputedStyle(document.querySelector('#word-content')).filter==='blur(6px)'")
+    check('Second click restores blur',"document.querySelector('[data-reveal=word]').getAttribute('aria-expanded')==='false'")
+    run('screenshot',str(out/'desktop-revealed.png'))
+    run('press','Escape')
+    wait('Math.abs(window.wabi.position.y-innerHeight)<1')
+    run('set','viewport','390','844')
+    run('snapshot')
+    check('No mobile horizontal overflow',"document.documentElement.scrollWidth===innerWidth")
+    run('mouse','move','195','780');run('mouse','down');run('mouse','move','195','300','--steps','24','--duration','450');run('mouse','up')
+    wait("window.wabi.state==='revealed'")
+    check('Upward drag opens',"window.wabi.state==='revealed'")
+    run('click','[data-reveal=word]')
+    run('screenshot',str(out/'mobile-revealed.png'))
+    run('mouse','move','195','338');run('mouse','down');run('mouse','move','195','780','--steps','24','--duration','450');run('mouse','up')
+    wait("window.wabi.state==='rest'")
+    check('Downward drag returns',"window.wabi.state==='rest'")
+    wait('Math.abs(window.wabi.position.y-innerHeight)<1')
+    run('mouse','move','195','780');run('mouse','down');run('mouse','up')
+    check('Visible prism tap opens',"window.wabi.state==='revealed'")
+    run('press','Escape')
+    run('set','media','dark','reduced-motion')
+    run('reload')
+    wait("window.wabi && window.wabi.state==='rest'")
+    check('Reduced-motion skips opening',"document.querySelector('#blueprint').hidden && !document.querySelector('#wabi').inert")
+    run('press','Enter')
+    check('Reduced-motion keyboard entry snaps',"window.wabi.state==='revealed' && window.wabi.position.y===innerHeight*.4")
+    rotation=js('window.wabi.earth.rotation')
+    old=js("document.querySelector('#flip-word').getAttribute('aria-label')")
+    js('new Promise(resolve=>setTimeout(()=>resolve(true),2300))')
+    check('Reduced-motion stops word cycling',f"document.querySelector('#flip-word').getAttribute('aria-label')==={json.dumps(old)}")
+    check('Reduced-motion stops globe rotation',f'window.wabi.earth.rotation==={rotation}')
+    run('screenshot',str(out/'mobile-reduced-motion.png'))
+    run('press','Escape');run('press','Tab')
+    check('Keyboard focus visible and operable',"document.activeElement.matches('button,a')")
+    check('No page runtime errors',json.dumps(run('errors'))+"==='' ")
+    print(f'{len(checks)} checks passed.',flush=True)
+finally:
+    (out/'smoke-results.json').write_text(json.dumps(checks,indent=2),encoding='utf-8')
+    run('set','media','dark')
