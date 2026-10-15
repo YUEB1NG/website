@@ -49,3 +49,14 @@
 - Safari mitigation keeps html/body and a fixed top safe-area strip in the current theme, updates theme-color, and reapplies on intro completion/pageshow. Related WebKit documentation: https://webkit.org/blog/11989/new-webkit-features-in-safari-15/ . Actual iPhone status-bar behavior still requires hardware verification.
 - X following-list access was unavailable without configured authorization. User explicitly deferred avatar replacement; existing source particles remain. No unverified accounts are represented as followed by YUEB1NG.
 - Skills discovered through find-skills: CloudAI-X/threejs-skills, fundamentals and materials, installed and read locally. https://github.com/CloudAI-X/threejs-skills
+
+## Pure planets, manual theme, and mooncake revision
+
+This section supersedes the earlier Q-style face, procedural planet maps, automatic time-of-day switching, and flat 2D orbit.
+
+- Planet surfaces: Solar System Scope / INOVE, CC BY 4.0, https://www.solarsystemscope.com/textures/ . The original download host returned a CAPTCHA page; no challenge was bypassed. Unchanged textures were obtained from the attributed public distribution https://github.com/elymas/solar-simulator/tree/main/public/textures . Attribution is included in the deployed `/credits.txt`.
+- Earth normal/specular: https://github.com/mrdoob/three.js/tree/dev/examples/textures/planets . Cloud shell, hemisphere/directional lighting, faint atmosphere and night emission use Three.js. No cartoon face or pastel albedo tint remains. Planets and mooncake rotate at 0.035 radians/sec (about three minutes per revolution), disabled with reduced motion.
+- Orbital portraits are billboard sprites in the same depth-tested Three.js scene as the sphere, in a tilted orbital plane. Far-side sprites are occluded by the globe; near-side sprites overlap its front. Rotation is 0.11 radians/sec. Existing particle images remain until the user supplies the deferred X following list.
+- The spherical mooncake is original procedural geometry: shallow flutes, baked crust grain, and raised floral stamps. No emoji artwork is used. Clicking 悦饼 toggles back to the selected planet.
+- Avatar and 悦饼 are separate keyboard-accessible buttons, shifted left by 0.375em. Name reveal exposes and retains these buttons. Avatar toggles day/night and persists `yueb1ng-theme` in localStorage; unavailable storage falls back to session state. Night preserves the Wabi starfield with slower 0.22-rad/sec twinkling.
+- `user-select`, iOS touch callout, contextmenu, selection, dragstart, and copy are disabled as explicitly requested. This prevents ordinary accidental long-press UI, not screenshotting or source inspection.

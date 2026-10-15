@@ -31,3 +31,10 @@ html,body{background:var(--page)}
 :root[data-theme=day] .swipe{filter:none}
 :root[data-theme=day] .reveal-trigger[aria-expanded=true]{background:#273242;border-color:#273242;color:#fff}
 @media(max-height:650px){:root{--text-size:24px}.greeting h1,.name-line,.likes{height:36px;min-height:36px}.social{bottom:max(18px,env(safe-area-inset-bottom))}}
+
+/* Long-press is an intentional scene gesture, including on iOS. */
+html,body,#wabi,#wabi *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#wabi img{-webkit-user-drag:none}
+.profile-name{transform:translateX(-.375em)}
+.profile-name button{touch-action:manipulation}
+.avatar-ring{cursor:pointer}

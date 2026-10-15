@@ -2,7 +2,7 @@ import './style.css';
 import { Scene } from './scene';
 import { Blueprint } from './blueprint';
 import { Planets, planetNames } from './planets';
-import { syncTheme } from './theme';
+import { syncTheme, toggleTheme } from './theme';
 
 const $=<T extends HTMLElement>(selector:string)=>document.querySelector<T>(selector)!;
 const app=$('#wabi'),start=$<HTMLButtonElement>('#start'),orb=$<HTMLButtonElement>('#orb'),greeting=$('#greeting'),swipe=$('#swipe'),social=$<HTMLAnchorElement>('#social'),status=$('#status');
@@ -15,7 +15,7 @@ function clearHold(){if(holdTimer!==undefined)clearTimeout(holdTimer);holdTimer=
 function toggleOrbit(){orbit=!orbit;orb.setAttribute('aria-pressed',String(orbit));status.textContent=orbit?'Avatars gathered into an orbit. Long press again to release.':'Avatars released.';}
 let textOffset=67.2;
 const textTarget=()=>Math.min(height*.55+textOffset,height-180);
-function resetName(){nameUnlocked=false;revealClock=0;$('.name-line').classList.remove('profile');$('.english-name').inert=false;$('.profile-name').setAttribute('aria-hidden','true');$('.profile-name').tabIndex=-1;}
+function resetName(){nameUnlocked=false;revealClock=0;$('.name-line').classList.remove('profile');$('.english-name').inert=false;$('.profile-name').setAttribute('aria-hidden','true');$('.profile-name').inert=true;}
 let width=innerWidth,height=innerHeight,x=width/2,y=height,targetX=x,targetY=y,vx=0,vy=0,textY=height,textV=0,active=false,dragging=false,reduced=media.matches;
 let last=performance.now(),elapsed=0,revealClock=0,secondary=0,downX=0,downY=0,fromY=0,moved=false,tiltX=0,tiltY=0,smoothTiltX=0,smoothTiltY=0,pointer:number|null=null;
 let flipIndex=0,flipping=false,lastFlip=0,flipStart=0,pressedOrb=false;
@@ -32,7 +32,7 @@ setWord(words[0]);
 
 function resetReveals(){document.querySelectorAll<HTMLButtonElement>('[data-reveal]').forEach(button=>{button.setAttribute('aria-expanded','false');button.querySelector<HTMLElement>('.reveal-content')!.dataset.state='closed';});}
 function setActive(next:boolean){
-  const changed=active!==next;if(changed&&next){if(hasEntered)planetIndex=(planetIndex+1)%8;hasEntered=true;planets.select(planetIndex);}active=next;targetY=next?height*.4:height;targetX=width/2;
+  const changed=active!==next;if(changed&&next){if(hasEntered)planetIndex=(planetIndex+1)%8;hasEntered=true;planets.select(planetIndex);$('#mooncake-toggle').setAttribute('aria-pressed','false');}active=next;targetY=next?height*.4:height;targetX=width/2;
   app.dataset.state=next?'revealed':'rest';orb.setAttribute('aria-label',next?`${planetNames[planetIndex]}. Click to return to the transparent ring`:`Transparent ring. Click to discover ${planetNames[hasEntered?(planetIndex+1)%8:2]}`);
   orb.title=next?'Click: transparent ring · Long press or O: gather into orbit':'Click to discover the next planet';
   if(!next){orbit=false;orb.setAttribute('aria-pressed','false');clearHold();}
@@ -79,7 +79,9 @@ document.querySelectorAll<HTMLButtonElement>('[data-reveal]').forEach(button=>bu
   if(button.dataset.reveal==='name'){nameUnlocked=open;revealClock=0;if(!open)resetName();}
   if(button.dataset.reveal==='word'){wordUnlocked=open;lastFlip=0;flipping=false;flipWord.style.opacity='1';}
 }));
-$('.profile-name').addEventListener('click',()=>{resetName();const button=$<HTMLButtonElement>('[data-reveal=name]');button.setAttribute('aria-expanded','false');$('#name-content').dataset.state='closed';button.focus({preventScroll:true});});
+$('#theme-toggle').addEventListener('click',()=>{toggleTheme();revealClock=10000;});
+$('#mooncake-toggle').addEventListener('click',()=>{planets.toggleMooncake();$('#mooncake-toggle').setAttribute('aria-pressed',String(planets.diagnostics.mooncake));orb.setAttribute('aria-label',`${planets.diagnostics.name}. Click to return to the transparent ring`);revealClock=10000;});
+for(const event of ['contextmenu','selectstart','dragstart','copy'])document.addEventListener(event,e=>e.preventDefault());
 app.addEventListener('pointerdown',e=>{
   if(blueprint.active||e.button!==0||pointer!==null)return;
   const el=e.target as HTMLElement;if(el.closest('a,button')&&el!==orb)return;
@@ -135,10 +137,10 @@ function tick(now:number){
   if(active&&!blueprint.active){
     if(nameUnlocked)revealClock+=dt*1000;
     if(wordUnlocked)lastFlip+=dt*1000;
-    const keyboardFocus=$('.english-name button').matches(':focus-visible');
-    const holdProfile=$('.name-line').classList.contains('profile')&&$('.profile-name').matches(':hover,:focus-visible');
-    const profile=nameUnlocked&&!reduced&&!keyboardFocus&&(holdProfile||(revealClock%24000>=10000&&revealClock%24000<22000));
-    $('.name-line').classList.toggle('profile',profile);$('.english-name').inert=profile;$('.profile-name').setAttribute('aria-hidden',String(!profile));$('.profile-name').tabIndex=profile?0:-1;
+    const profile=nameUnlocked&&(reduced||revealClock>=1800);
+    const transferFocus=profile&&!$('.name-line').classList.contains('profile')&&$('.english-name button').matches(':focus-visible');
+    $('.name-line').classList.toggle('profile',profile);$('.english-name').inert=profile;$('.profile-name').setAttribute('aria-hidden',String(!profile));$('.profile-name').inert=!profile;
+    if(transferFocus)$('#theme-toggle').focus({preventScroll:true});
     if(wordUnlocked&&!reduced&&lastFlip>=8000&&!flipping)beginFlip(now);
     if(flipping&&now-flipStart>=800){flipIndex=(flipIndex+1)%words.length;setWord(words[flipIndex]);flipping=false;lastFlip=0;}
   }
@@ -146,7 +148,7 @@ function tick(now:number){
   const radius=updateDOM();const day=document.documentElement.dataset.theme==='day';
   const morph=clamp((200-radius-95)/55,0,1),planetMix=planets.available?morph*morph*(3-2*morph):0;
   scene.render({x,y,radius,active:active&&!blueprint.active,time:elapsed,dt,reduced,tiltX:smoothTiltX,tiltY:smoothTiltY,day,planetMix,orbit});
-  planets.render(x,y,radius,planetMix,dt,reduced,day);
+  planets.render(x,y,radius,planetMix,dt,reduced,day,scene.orbitBlend);
   requestAnimationFrame(tick);
 }
 // rAF is suspended by the browser in background tabs; reset timestamps on return.

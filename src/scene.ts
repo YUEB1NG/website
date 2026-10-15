@@ -7,7 +7,7 @@ const vertex = `attribute vec2 a_position; void main(){gl_Position=vec4(a_positi
 const stars = `precision highp float;
 uniform vec2 resolution; uniform float time; uniform float pixelRatio; uniform sampler2D layer; uniform float day;
 float hash12(vec2 p){vec3 p3=fract(vec3(p.x,p.y,p.x)*.1031);p3+=dot(p3,vec3(p3.y,p3.z,p3.x)+33.33);return fract((p3.x+p3.y)*p3.z);}
-void main(){vec2 p=vec2(gl_FragCoord.x,resolution.y-gl_FragCoord.y);vec2 q=p/pixelRatio;float d=pow(hash12(q),3.);float mult=(sin(1.2*time+q.x+q.y)+1.)*.5;d=smoothstep(.99,1.,d)*mult;vec4 image=texture2D(layer,p/resolution);gl_FragColor=vec4(mix(mix(vec3(d),vec3(.957,.965,.98)-vec3(d*.12),day),image.rgb,image.a),1.);}`;
+void main(){vec2 p=vec2(gl_FragCoord.x,resolution.y-gl_FragCoord.y);vec2 q=p/pixelRatio;float d=pow(hash12(q),3.);float mult=.55+.45*(sin(.22*time+q.x+q.y)+1.)*.5;d=smoothstep(.99,1.,d)*mult;vec4 image=texture2D(layer,p/resolution);gl_FragColor=vec4(mix(mix(vec3(d),vec3(.957,.965,.98)-vec3(d*.12),day),image.rgb,image.a),1.);}`;
 
 type Particle = { image: HTMLImageElement; progress:number; delay:number; speed:number; x:number; y:number; endX:number; endY:number };
 export interface Frame { x:number; y:number; radius:number; active:boolean; time:number; dt:number; reduced:boolean; tiltX:number; tiltY:number; day:boolean; planetMix:number; orbit:boolean }
@@ -25,7 +25,6 @@ export class Scene {
   private width=1; private height=1; private ratio=1;
   private elapsed=0; private active=false;
   private orbitMix=0;
-  private orbitTime=0;
   private particles: Particle[]=[];
   private fallback?:HTMLDivElement;
   private lost=false;
@@ -85,23 +84,19 @@ export class Scene {
   }
   render(frame:Frame){
     this.orbitMix=frame.reduced?(frame.orbit?1:0):this.orbitMix+((frame.orbit?1:0)-this.orbitMix)*(1-Math.exp(-frame.dt*3));
-    if(!frame.reduced)this.orbitTime+=frame.dt*.15;
     if(this.fallback){Object.assign(this.fallback.style,{left:`${frame.x-frame.radius}px`,top:`${frame.y-frame.radius}px`,width:`${frame.radius*2}px`,height:`${frame.radius*2}px`});return;}
     const gl=this.gl!;if(this.lost)return;
     if(frame.active&&!this.active){this.elapsed=0;this.particles.forEach(p=>this.reset(p));}
     this.active=frame.active;if(frame.active)this.elapsed+=frame.dt*1000;
     const ctx=this.ctx;ctx.clearRect(0,0,this.paint.width,this.paint.height);ctx.save();ctx.scale(this.ratio,this.ratio);
-    if((!frame.reduced&&this.elapsed>=600)||frame.orbit){for(const [index,p] of this.particles.entries()){
+    if((!frame.reduced&&this.elapsed>=600)||frame.orbit){for(const p of this.particles){
       if(this.orbitMix<.001&&(this.elapsed<600+p.delay||(!frame.active&&p.progress===0)))continue;
       if(!frame.orbit&&!frame.reduced)p.progress+=p.speed*frame.dt*1000;
       if(p.progress>=1){if(frame.active)this.reset(p);else continue;}
-      const t=p.progress,scale=Math.min(1,t/.15),m=this.orbitMix;
-      const angle=index/16*Math.PI*2+this.orbitTime,orbitSize=27+Math.sin(angle)*3;
-      const size=70*scale*(1-m)+orbitSize*m;
-      const startX=p.x+(p.endX-p.x)*t+35+frame.tiltX*frame.radius,startY=p.y+(p.endY-p.y)*t+35+Math.min(frame.tiltY*frame.radius,0);
-      const orbitX=frame.x+Math.cos(angle)*Math.min(112,this.width*.30),orbitY=frame.y+Math.sin(angle)*64;
-      const x=startX*(1-m)+orbitX*m-size/2,y=startY*(1-m)+orbitY*m-size/2;
-      ctx.globalAlpha=index<16?1:1-m;
+      const t=p.progress,scale=Math.min(1,t/.15),size=70*scale;
+      const x=p.x+(p.endX-p.x)*t+35-size/2+frame.tiltX*frame.radius;
+      const y=p.y+(p.endY-p.y)*t+35-size/2+Math.min(frame.tiltY*frame.radius,0);
+      ctx.globalAlpha=1-this.orbitMix;
       if(p.image.complete&&p.image.naturalWidth)ctx.drawImage(p.image,x,y,size,size);
     }}ctx.restore();
     const w=this.canvas.width,h=this.canvas.height,[base,prism]=this.programs;
@@ -113,5 +108,6 @@ export class Scene {
     gl.uniform2f(this.uniform(prism,'u_resolution'),w,h);gl.uniform2f(this.uniform(prism,'u_center'),frame.x*this.ratio,frame.y*this.ratio);one('u_radius',frame.radius*this.ratio);one('u_refraction',.5);one('u_edgeWidth',.1);one('u_dispersion',.9);one('u_specular',1);one('u_shadowOpacity',.15);one('u_shadowSpread',.2);one('u_transparentBg',0);one('u_bubbleOpacity',0);one('u_shape',0);one('u_cornerRadius',0);three('u_bgColor',frame.day?.957:0,frame.day?.965:0,frame.day?.98:0);three('u_shadowColor',1,1,1);three('u_bubbleColor',0,0,0);
     [[1,0,0],[1,1,0],[0,1,0],[0,1,1],[0,0,1],[1,0,1]].forEach((c,i)=>three(`u_prismColor${i}`,c[0],c[1],c[2]));gl.drawArrays(gl.TRIANGLES,0,6);
   }
+  get orbitBlend(){return this.orbitMix;}
   get renderer(){return this.fallback?'fallback':'webgl';}
 }
