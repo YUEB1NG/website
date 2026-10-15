@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-type Face={a:THREE.Vector3;b:THREE.Vector3;c:THREE.Vector3;uv:THREE.Vector2[];material:THREE.Material;end:number};
+type Face={a:THREE.Vector3;b:THREE.Vector3;c:THREE.Vector3;uv:THREE.Vector2[];colors?:THREE.Color[];material:THREE.Material;end:number};
 type Surface={positions:Float32Array;colors:Float32Array};
 const count=1500;
 
@@ -22,7 +22,8 @@ function surface(root:THREE.Object3D,space:THREE.Matrix4):Surface {
       const [a,b,c]=ids.map(n=>new THREE.Vector3().fromBufferAttribute(position,n).applyMatrix4(matrix));
       const area=new THREE.Vector3().subVectors(b,a).cross(new THREE.Vector3().subVectors(c,a)).length()*.5;
       if(area<1e-9)continue;total+=area;
-      faces.push({a,b,c,material,end:total,uv:ids.map(n=>uv?new THREE.Vector2(uv.getX(n),uv.getY(n)):new THREE.Vector2())});
+      const vertexColor=geometry.attributes.color;
+      faces.push({a,b,c,material,end:total,colors:vertexColor?ids.map(n=>new THREE.Color().fromBufferAttribute(vertexColor,n)):undefined,uv:ids.map(n=>uv?new THREE.Vector2(uv.getX(n),uv.getY(n)):new THREE.Vector2())});
     }
   });
   const positions=new Float32Array(count*3),colors=new Float32Array(count*3);
@@ -36,6 +37,7 @@ function surface(root:THREE.Object3D,space:THREE.Matrix4):Surface {
     const point=face.a.clone().multiplyScalar(weights[0]).addScaledVector(face.b,weights[1]).addScaledVector(face.c,weights[2]);point.toArray(positions,i*3);
     const material=face.material as THREE.MeshPhongMaterial;
     const color=material.color?.clone()??new THREE.Color('white'),map=material.map;
+    if(face.colors&&material.vertexColors){const tint=new THREE.Color(0,0,0);face.colors.forEach((c,k)=>{tint.r+=c.r*weights[k];tint.g+=c.g*weights[k];tint.b+=c.b*weights[k];});color.multiply(tint);}
     if(map?.image){
       if(!pixels.has(map)){
         const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const ctx=canvas.getContext('2d',{willReadFrequently:true})!;

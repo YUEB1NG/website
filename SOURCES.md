@@ -100,3 +100,13 @@ This section supersedes the earlier spherical mooncake, retained profile, eight-
 - A512-segment projected ellipse arc-length lookup spaces20 portraits evenly on screen. Radius2.15 sphere units, incline1.23 radians with front/below and rear/above depth direction, phase speed0.11 rad/s. Portrait diameters vary gently from0.29 to0.43 sphere units with depth; opacity remains1 and depth testing retains real globe occlusion.
 - Profile ring background follows the page in both themes, with identical2px padding and a1px border. Day mode no longer fills the gap with black.
 - 悦饼 is ordinary text. The mooncake mode/trigger is removed; the revealed profile remains available for day/night switching until leaving the scene. Like, stickers and all ten celestial bodies remain.
+
+
+## Video-inspired miniature models, 2026-10-16 (current)
+
+- User-supplied MOV is the visual reference for raised coastlines, little trees/buildings, rounded pink clouds and soft toy-like materials. It was viewed at multiple timestamps locally; neither the video nor extracted frames ship with the public site. These are new procedural models, not meshes extracted from that video.
+- `toy-planets.ts`: ten original rounded miniature planet models. Earth land geometry uses the public-domain Natural Earth 1:110m coastline, stored locally at `/models/land-110m.json`. Source: https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_land.geojson . Terms: https://www.naturalearthdata.com/about/terms-of-use/ . The stylized geography is not a precise scientific globe.
+- PBR clay/enamel materials and a Three.js RoomEnvironment provide soft studio illumination. Trees, buildings and cloud clusters are baked per material to bound draw calls. Previous photographic planet maps remain attributed assets but are no longer used on the current models.
+- Footballs use real curved puffy panels and recessed seams, with the previous original stylized historical artwork. Historical arrays stay stable; display indices sort years descending: 2026, 2022, ... 1930 Tiento, 1930 T-model, then wrap. No claim of exact official manufacturing meshes or licensed textures.
+- Football reconstruction now samples vertex colors as well as maps so continental green and gas-giant bands survive the particle morph. 1500 particles, 2.15s, queued taps and reduced motion remain unchanged. Physical planet rotation is 0.045 rad/s and football rotation 0.08 rad/s.
+- Applied installed skills: CloudAI-X Three.js fundamentals/materials, impeccable-design-polish, emilkowalski-motion; Sites source/deploy workflow and agent-browser QA. img2threejs was evaluated but its separate reconstruction pipeline was not used.

@@ -21,6 +21,10 @@ export const footballEditions = [
   {year:2022,name:'Al Rihla'}, {year:2026,name:'Trionda'},
 ] as const;
 
+/** Display order is independent of the stable historical asset indices. */
+export const footballPlayOrder=footballEditions.map((_,index)=>index)
+  .sort((a,b)=>footballEditions[b].year-footballEditions[a].year||a-b);
+
 type Ctx = CanvasRenderingContext2D;
 const V = (x:number,y:number,z:number) => new THREE.Vector3(x,y,z);
 const tau=Math.PI*2;
@@ -115,27 +119,86 @@ function classicPanels(){
   return polygons;
 }
 
-function sphericalPanel(points:THREE.Vector3[]){
+/** A padded spherical panel with a real rolled rim and recessed side wall. */
+function sphericalPanel(points:THREE.Vector3[],warp=0){
   const center=points.reduce((a,p)=>a.add(p),V(0,0,0)).normalize();
   const right=points[0].clone().sub(center.clone().multiplyScalar(points[0].dot(center))).normalize();
   const up=center.clone().cross(right).normalize();
   const ordered=points.map(p=>p.clone()).sort((a,b)=>Math.atan2(a.dot(up),a.dot(right))-Math.atan2(b.dot(up),b.dot(right)));
-  // Shrink faces very slightly to reveal recessed dark stitching rather than thick outlines.
-  ordered.forEach(p=>p.lerp(center,.009).normalize());
+  ordered.forEach(p=>p.lerp(center,.014).normalize());
   const extent=Math.max(...ordered.map(p=>Math.hypot(p.dot(right),p.dot(up))));
-  const positions:number[]=[],uv:number[]=[],normals:number[]=[];
-  const point=(a:THREE.Vector3,b:THREE.Vector3,u:number,v:number)=>center.clone().multiplyScalar(1-u-v).addScaledVector(a,u).addScaledVector(b,v);
-  const emit=(v:THREE.Vector3)=>{v.normalize();positions.push(v.x,v.y,v.z);normals.push(v.x,v.y,v.z);uv.push(.5+v.dot(right)/extent*.48,.5+v.dot(up)/extent*.48);};
-  const n=8;
-  for(let edge=0;edge<ordered.length;edge++){
-    const a=ordered[edge],b=ordered[(edge+1)%ordered.length];
-    for(let i=0;i<n;i++)for(let j=0;j<n-i;j++){
-      emit(point(a,b,i/n,j/n));emit(point(a,b,(i+1)/n,j/n));emit(point(a,b,i/n,(j+1)/n));
-      if(i+j<n-1){emit(point(a,b,(i+1)/n,j/n));emit(point(a,b,(i+1)/n,(j+1)/n));emit(point(a,b,i/n,(j+1)/n));}
+  const outline:THREE.Vector3[]=[];
+  for(let i=0;i<ordered.length;i++){
+    const previous=ordered[(i+ordered.length-1)%ordered.length],corner=ordered[i],next=ordered[(i+1)%ordered.length];
+    const entry=corner.clone().lerp(previous,.065),exit=corner.clone().lerp(next,.065);
+    for(let j=0;j<5;j++){
+      const t=j/5;outline.push(entry.clone().multiplyScalar((1-t)**2).addScaledVector(corner,2*t*(1-t)).addScaledVector(exit,t*t).normalize());
     }
+    const nextEntry=next.clone().lerp(corner,.065);
+    for(let j=0;j<9;j++)outline.push(exit.clone().lerp(nextEntry,j/9).normalize());
+  }
+  const positions:number[]=[],uv:number[]=[],indices:number[]=[];
+  const deform=(v:THREE.Vector3)=>{
+    // A smooth shared deformation makes modern boundaries flow across the ball.
+    // Applying the same map to every patch preserves neighbouring edges.
+    if(warp){const {x,y,z}=v;v.add(V(Math.sin(3*y+z),Math.sin(3*z+x),Math.sin(3*x+y)).multiplyScalar(warp)).normalize();}
+    return v;
+  };
+  const emit=(direction:THREE.Vector3,radius:number)=>{
+    uv.push(.5+direction.dot(right)/extent*.48,.5+direction.dot(up)/extent*.48);
+    const p=deform(direction.clone()).multiplyScalar(radius);positions.push(p.x,p.y,p.z);
+  };
+  emit(center,1);
+  // Densely sample the rounded rim so specular highlights roll over the edge.
+  const rings=[.22,.43,.62,.78,.89,.94,.97,.988,1];
+  for(const t of rings)for(const edge of outline){
+    const bevel=THREE.MathUtils.smoothstep(t,.91,1);
+    emit(center.clone().lerp(edge,t).normalize(),1-.005*t*t-.011*bevel);
+  }
+  const count=outline.length;
+  for(let i=0;i<count;i++)indices.push(0,1+i,1+(i+1)%count);
+  for(let r=0;r<rings.length-1;r++)for(let i=0;i<count;i++){
+    const a=1+r*count+i,b=1+r*count+(i+1)%count,c=a+count,d=b+count;
+    indices.push(a,c,b,b,c,d);
+  }
+  const last=1+(rings.length-1)*count,side=positions.length/3;
+  outline.forEach(p=>emit(p,.971));
+  for(let i=0;i<count;i++){
+    const next=(i+1)%count;indices.push(last+i,side+i,last+next,last+next,side+i,side+next);
   }
   const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
-  geometry.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));return geometry;
+  geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geometry.setIndex(indices);geometry.computeVertexNormals();return geometry;
+}
+
+function enamel(map?:THREE.Texture,color:THREE.ColorRepresentation=0xffffff,leather=false){
+  return new THREE.MeshPhysicalMaterial({color,map:map??null,roughness:leather?.48:.34,metalness:0,
+    clearcoat:leather?.2:.48,clearcoatRoughness:.33,specularIntensity:.7});
+}
+
+/** Spherical Voronoi construction: separate panels, never decal planes on a sphere. */
+function modernPanels(year:number){
+  const axes=[V(1,0,0),V(-1,0,0),V(0,1,0),V(0,-1,0),V(0,0,1),V(0,0,-1)];
+  const corners:THREE.Vector3[]=[];
+  for(const x of [-1,1])for(const y of [-1,1])for(const z of [-1,1])corners.push(V(x,y,z).normalize());
+  let centers:THREE.Vector3[];
+  if(year===2006)centers=[...axes,...corners];
+  else if(year===2010)centers=corners;
+  else if(year===2022){
+    const ico=new THREE.IcosahedronGeometry(1,0),p=ico.getAttribute('position');centers=[];
+    for(let i=0;i<p.count;i+=3)centers.push(V(p.getX(i)+p.getX(i+1)+p.getX(i+2),p.getY(i)+p.getY(i+1)+p.getY(i+2),p.getZ(i)+p.getZ(i+1)+p.getZ(i+2)).normalize());
+    ico.dispose();
+  }else if(year===2026)centers=[V(1,1,1),V(1,-1,-1),V(-1,1,-1),V(-1,-1,1)].map(v=>v.normalize());
+  else centers=axes;
+  return centers.map(center=>{
+    const planes=centers.filter(c=>c!==center).map(c=>center.clone().sub(c).normalize()),points:THREE.Vector3[]=[];
+    for(let i=0;i<planes.length;i++)for(let j=i+1;j<planes.length;j++){
+      const cross=planes[i].clone().cross(planes[j]);if(cross.lengthSq()<1e-8)continue;cross.normalize();
+      for(const sign of [-1,1]){
+        const p=cross.clone().multiplyScalar(sign);
+        if(planes.every(n=>p.dot(n)>-1e-6)&&!points.some(q=>q.distanceToSquared(p)<1e-8))points.push(p);
+      }
+    }return points;
+  });
 }
 
 function modernGraphic(ctx:Ctx,year:number){
@@ -170,81 +233,82 @@ function modernGraphic(ctx:Ctx,year:number){
     for(let i=0;i<3;i++){
       ctx.save();ctx.translate(128,128);ctx.rotate(tau*i/3);ctx.beginPath();ctx.moveTo(-21,13);ctx.bezierCurveTo(-71,-13,-94,-71,-39,-119);ctx.bezierCurveTo(-8,-78,49,-75,40,-35);ctx.bezierCurveTo(36,-15,8,5,-21,13);ctx.fillStyle=['#c93f42','#15967a','#2166bf'][i];ctx.fill();ctx.strokeStyle=gold;ctx.lineWidth=3;ctx.stroke();
       if(i===2)star(ctx,-24,-64,17,'#f7f4df');
-      else if(i===0){star(ctx,-24,-64,18,'#f7f4df',7);ctx.fillStyle='#f7f4df';ctx.fillRect(-26,-62,4,26);}
+      else if(i===0){
+        // Canada's maple leaf is part of Trionda's graphic, not a decorative star.
+        ctx.save();ctx.translate(-24,-67);ctx.beginPath();
+        const leaf=[[-2,24],[-2,11],[-17,13],[-13,6],[-24,-3],[-16,-5],[-18,-15],[-8,-10],[-7,-24],[0,-19],[7,-24],[8,-10],[18,-15],[16,-5],[24,-3],[13,6],[17,13],[2,11],[2,24]];
+        leaf.forEach(([x,y],j)=>j?ctx.lineTo(x*.7,y*.7):ctx.moveTo(x*.7,y*.7));ctx.closePath();ctx.fillStyle='#f7f4df';ctx.fill();ctx.restore();
+      }
       else{ctx.strokeStyle='#f7f4df';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-44,-77);ctx.quadraticCurveTo(-23,-44,-5,-77);ctx.moveTo(-24,-66);ctx.lineTo(-24,-48);ctx.stroke();}ctx.restore();
     }
   }
 }
 
-/** A curved decal, projected onto the sphere instead of a flat billboard. */
-function curvedDecal(direction:THREE.Vector3,map:THREE.Texture,span=1.42){
-  const geometry=new THREE.PlaneGeometry(span,span,28,28),p=geometry.getAttribute('position');
-  for(let i=0;i<p.count;i++){
-    const x=p.getX(i),y=p.getY(i);const v=V(x,y,1).normalize().multiplyScalar(1.003);
-    p.setXYZ(i,v.x,v.y,v.z);
-  }geometry.computeVertexNormals();
-  const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({map,transparent:true,alphaTest:.035,roughness:.58,depthWrite:true,polygonOffset:true,polygonOffsetFactor:-1}));
-  mesh.quaternion.setFromUnitVectors(V(0,0,1),direction.clone().normalize());return mesh;
-}
-
+/** Project a cube's long leather strips onto a padded sphere. */
 function leatherBall(group:THREE.Group,index:number){
   const edition=footballEditions[index];
-  const colors=['#8d603a','#986d41','#af8754','#875d39','#ad7846','#cfad70','#eeeadc','#c6a575','#bc572f'];
-  const color=colors[index];
-  const texture=canvasTexture(ctx=>{
-    ctx.fillStyle=color;ctx.fillRect(0,0,256,256);grain(ctx,false);
-    ctx.strokeStyle='rgba(42,25,12,.65)';ctx.lineWidth=2.6;
-    // The period's long leather strips: different orientations/widths per era.
-    const count=index===6?4:3;
-    for(let y=0;y<2;y++)for(let x=0;x<3;x++){
-      const w=256/3,h=128;ctx.strokeRect(x*w,y*h,w,h);
-      for(let strip=1;strip<count;strip++){
-        ctx.beginPath();
-        if((x+y+index)%2===0){ctx.moveTo(x*w+strip*w/count,y*h);ctx.lineTo(x*w+strip*w/count,(y+1)*h);}
-        else{ctx.moveTo(x*w,y*h+strip*h/count);ctx.lineTo((x+1)*w,y*h+strip*h/count);}ctx.stroke();
-      }
+  const colors=['#986d45','#a27a50','#b38a59','#976c45','#b78857','#d8b67c','#eee8d8','#ceb28a','#c97549'];
+  const color=new THREE.Color(colors[index]);
+  const map=canvasTexture(ctx=>{ctx.fillStyle='#fff';ctx.fillRect(0,0,256,256);grain(ctx);});
+  const materials=[-.035,0,.025].map(offset=>enamel(map,color.clone().offsetHSL(0,0,offset),true));
+  const directions=[V(0,0,1),V(0,0,-1),V(1,0,0),V(-1,0,0),V(0,1,0),V(0,-1,0)];
+  const stripCounts=index===1?[1,2,2,2,2,2]:index===2||index===3?[3,2,2,2,2,2]:index===6?[4,4,4,4,4,4]:index===8?[5,4,4,4,4,4]:index>=5?[3,3,3,3,3,3]:[2,2,2,2,2,2];
+  directions.forEach((direction,face)=>{
+    const quaternion=new THREE.Quaternion().setFromUnitVectors(V(0,0,1),direction);
+    const strips=stripCounts[face];
+    for(let strip=0;strip<strips;strip++){
+      const lo=-1+2*strip/strips,hi=-1+2*(strip+1)/strips;
+      const points=[V(lo,-1,1),V(hi,-1,1),V(hi,1,1),V(lo,1,1)];
+      if(face%2)points.forEach(p=>{const x=p.x;p.x=p.y;p.y=-x;});
+      points.forEach(p=>p.applyQuaternion(quaternion).normalize());
+      const panel=new THREE.Mesh(sphericalPanel(points),materials[(strip+face)%3]);
+      panel.name='padded-leather-panel';group.add(panel);
     }
-  },512);
-  group.add(new THREE.Mesh(new THREE.SphereGeometry(1,80,56),new THREE.MeshStandardMaterial({map:texture,roughness:.82,bumpMap:texture,bumpScale:.008})));
+  });
   if(edition.year<=1938){
-    // Raised cotton/laced valve closure characteristic of the earliest balls.
-    const laceMaterial=new THREE.MeshStandardMaterial({color:index===2?'#d5bf90':'#513923',roughness:.9});
+    const laceMaterial=enamel(undefined,index===2?'#e3cfab':'#67472d',true);
     for(let i=0;i<8;i++){
-      const y=(i-3.5)*.052,z=Math.sqrt(1-y*y)+.009;
-      const tube=new THREE.Mesh(new THREE.CapsuleGeometry(.011,.12,3,6),laceMaterial);tube.rotation.z=Math.PI/2;tube.position.set(0,y,z);group.add(tube);
+      const y=(i-3.5)*.052,z=Math.sqrt(1-y*y)+.003;
+      const tube=new THREE.Mesh(new THREE.CapsuleGeometry(.009,.12,3,6),laceMaterial);
+      tube.rotation.z=Math.PI/2;tube.position.set(0,y,z);group.add(tube);
     }
   }
+  group.userData.panelCount=stripCounts.reduce((a,b)=>a+b,0);
 }
 
-/** Unit-radius ball centred at origin. Caller owns rotation and resource disposal. */
+/** Unit-radius toy football centred at origin. Caller owns rotation and disposal. */
 export function createFootball(index:number):THREE.Group{
-  index=((Math.trunc(index)%footballEditions.length)+footballEditions.length)%footballEditions.length;
+  index=Number.isFinite(index)?((Math.trunc(index)%footballEditions.length)+footballEditions.length)%footballEditions.length:footballPlayOrder[0];
   const edition=footballEditions[index],group=new THREE.Group();
   group.name=`football-${edition.year}-${edition.name}`;
-  group.userData={edition,stylized:true};
-  if(edition.year<1970){leatherBall(group,index);return group;}
-  if(edition.year<=1998){
-    group.add(new THREE.Mesh(new THREE.SphereGeometry(.996,48,32),new THREE.MeshStandardMaterial({color:0x8c8c83,roughness:.8})));
+  group.userData={edition,stylized:true,construction:'individual-rounded-panels'};
+  // This low core is visible only deep in the seams; it is not the ball's skin.
+  group.add(new THREE.Mesh(new THREE.SphereGeometry(.973,48,32),new THREE.MeshStandardMaterial({color:edition.year<1970?0x6e4f35:0x8f9390,roughness:.8})));
+  if(edition.year<1970){leatherBall(group,index);}
+  else if(edition.year<=2002){
     const textures=[panelTexture(edition.year,true),panelTexture(edition.year,false)];
-    const materials=textures.map(map=>new THREE.MeshStandardMaterial({map,roughness:edition.year<1986?.68:.54,metalness:0}));
-    for(const panel of classicPanels())group.add(new THREE.Mesh(sphericalPanel(panel.points),materials[panel.pentagon?0:1]));
-  }else{
-    const baseTexture=canvasTexture(ctx=>{ctx.fillStyle=edition.year===2002?'#f2e7cc':'#f7f7ef';ctx.fillRect(0,0,256,256);grain(ctx);});
-    group.add(new THREE.Mesh(new THREE.SphereGeometry(1,80,56),new THREE.MeshStandardMaterial({map:baseTexture,roughness:.53,metalness:.015})));
-    const graphic=canvasTexture(ctx=>modernGraphic(ctx,edition.year),512);
-    const directions=[V(0,0,1),V(0,0,-1),V(1,0,0),V(-1,0,0),V(0,1,0),V(0,-1,0)];
-    for(const direction of directions)group.add(curvedDecal(direction,graphic,edition.year===2014?1.7:1.6));
-    // Fine thermal-bond groove curves. Modern panel outlines are artistic studies,
-    // not claims of manufacturing-accurate 14/8/6/20/4-panel CAD reconstruction.
-    const groove=new THREE.MeshStandardMaterial({color:0xb4b8b6,roughness:.8});
-    for(let j=0;j<3;j++){
-      const points:THREE.Vector3[]=[];
-      for(let k=0;k<=96;k++){
-        const a=k/96*tau;points.push(V(Math.cos(a),Math.sin(a),.075*Math.sin(4*a)).normalize().multiplyScalar(1.001));
-      }
-      const mesh=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points,true),128,.0028,3,true),groove);
-      mesh.rotation.set(j===1?Math.PI/2:0,j===2?Math.PI/2:0,0);group.add(mesh);
+    const materials=textures.map(map=>enamel(map));
+    let feverMaterial:THREE.MeshPhysicalMaterial|undefined;
+    if(edition.year===2002){
+      feverMaterial=enamel(canvasTexture(ctx=>{ctx.fillStyle='#f4ecd7';ctx.fillRect(0,0,256,256);modernGraphic(ctx,2002);grain(ctx);},512));
     }
+    const panels=classicPanels();
+    panels.forEach((panel,i)=>{
+      const material=feverMaterial&&!panel.pentagon&&[12,17,23,28].includes(i)?feverMaterial:materials[panel.pentagon?0:1];
+      const mesh=new THREE.Mesh(sphericalPanel(panel.points),material);mesh.name=panel.pentagon?'rounded-pentagon':'rounded-hexagon';group.add(mesh);
+    });group.userData.panelCount=32;
+  }else{
+    const panels=modernPanels(edition.year);
+    const graphic=canvasTexture(ctx=>{
+      ctx.fillStyle='#f8f7ef';ctx.fillRect(0,0,256,256);modernGraphic(ctx,edition.year);grain(ctx);
+    },512);
+    const material=enamel(graphic);
+    const plainMaterial=edition.year===2006?enamel(canvasTexture(ctx=>{ctx.fillStyle='#f8f7ef';ctx.fillRect(0,0,256,256);grain(ctx);})):material;
+    panels.forEach((points,i)=>{
+      const warp=edition.year===2006?.045:edition.year===2014?.095:edition.year===2026?.075:.035;
+      const mesh=new THREE.Mesh(sphericalPanel(points,warp),edition.year===2006&&i<6?plainMaterial:material);
+      mesh.name='rounded-bonded-panel';group.add(mesh);
+    });group.userData.panelCount=panels.length;
   }
   group.rotation.set(.12,.3,.1);return group;
 }

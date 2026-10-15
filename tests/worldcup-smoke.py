@@ -23,7 +23,7 @@ run('set','viewport','390','844');run('set','media','light')
 run('open',sys.argv[1] if len(sys.argv)>1 else 'http://127.0.0.1:5173/')
 js("localStorage.setItem('yueb1ng-theme','day')");run('reload')
 wait("window.wabi?.state==='rest'")
-check('ten real celestial textures',"wabi.planet.loadedSurfaces===10")
+check('ten miniature celestial models ready',"wabi.planet.loadedSurfaces===10")
 check('copy/select/context suppression',"['copy','contextmenu','selectstart','dragstart'].every(t=>!document.body.dispatchEvent(new Event(t,{bubbles:true,cancelable:true})))")
 click('#start');wait('wabi.position.radius<50.1');pause(1200)
 check('Earth first and day theme',"wabi.planet.name==='Earth'&&wabi.theme==='day'")
@@ -38,14 +38,15 @@ click('#theme-toggle');check('manual night and browser chrome',"wabi.theme==='ni
 click('#profile-label');check('name is plain text and keeps Earth',"wabi.planet.name==='Earth'&&document.querySelector('#profile-label').tagName==='SPAN'")
 click('#theme-toggle')
 check('day mode still available',"wabi.theme==='day'")
-click('#football-toggle');wait('wabi.planet.footballTransition===null');check('football starts with Qatar ball',"wabi.planet.name==='2022 Al Rihla'&&wabi.planet.footballCount===24")
+click('#football-toggle');wait('wabi.planet.footballTransition===null');check('football starts with newest 2026 ball',"wabi.planet.name==='2026 Trionda'&&wabi.planet.footballCount===24")
 run('set','media','light','reduced-motion');pause(100)
 seen=[]
 for i in range(24):
  seen.append(js('wabi.planet.name'))
  js("document.querySelector('#football-toggle').click()")
 assert len(set(seen))==24 and '1970 Telstar' in seen and '2026 Trionda' in seen
-checks.append('all 24 historical ball entries selectable');print('PASS all 24 historical ball entries selectable',flush=True)
+assert [int(n[:4]) for n in seen]==sorted([int(n[:4]) for n in seen],reverse=True),seen
+checks.append('all 24 balls cycle newest to oldest');print('PASS all 24 historical ball entries selectable',flush=True)
 shot('revised-football');run('set','media','light');pause(100)
 click('#there');check('there is inert text',"document.querySelector('#there').tagName==='SPAN'&&wabi.planet.mode==='football'")
 click('#everything');check('everything is inert text',"document.querySelector('#everything').tagName==='SPAN'&&!document.querySelector('.flyover')&&wabi.planet.mode==='football'")

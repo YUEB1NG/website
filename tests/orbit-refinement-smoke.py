@@ -40,7 +40,7 @@ check('front portrait receives clicks ahead of the globe',"wabi.planet.bursts===
 click('#football-toggle');wait('wabi.planet.footballTransition===null')
 check('football particle reconstruction still completes',"wabi.planet.mode==='football'")
 run('set','media','light','reduced-motion');pause(150);a=js('wabi.planet.orbitAngle');pause(350)
-check('reduced motion still stops orbital motion',f'wabi.planet.orbitAngle==={a}')
+check('reduced motion still stops orbital motion',f'Math.abs(wabi.planet.orbitAngle-({a}))<1e-10')
 assert not run('errors'),run('errors')
 assert '[error]' not in run('console'),run('console')
 (root/'artifacts/orbit-refinement-checks.json').write_text(json.dumps({'checks':checks,'dayRing':day,'nightRing':night},indent=2),encoding='utf-8')

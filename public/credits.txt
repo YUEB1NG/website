@@ -19,3 +19,6 @@ World Cup footballs, trophy, Argentina crest and football charms are original
 stylized procedural/vector studies, not official meshes or texture reproductions.
 Design references: FIFA ball/trophy history, adidas ball history, AFA identity,
 and https://doodles.google/doodle/2022-world-cup-finals/ .
+
+Current miniature Earth geography: Made with Natural Earth. Public domain. https://www.naturalearthdata.com/about/terms-of-use/
+Procedural miniature planets and puffy football panels: original Three.js geometry; video-inspired style, not extracted meshes or exact official models.
