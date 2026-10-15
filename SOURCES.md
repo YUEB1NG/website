@@ -82,8 +82,14 @@ This section supersedes the earlier spherical mooncake, retained profile, eight-
 - FIFA malachite base: https://inside.fifa.com/tournaments/mens/worldcup/2018russia/news/april-1--wc-countdown-74-days-to-go-2934121
 - AFA brand manual (search indexed, large PDF not fully fetched): https://assets1.afa.com.ar/torneo/Lea/2025/ENERO/Boletin-Complementario-6624-01-Manual-de-Marca-de-AFA-%2806-02-2025%29.pdf
 
-## Transition refinement, 2026-10-15 (current behavior)
+## Transition refinement, 2026-10-15
 
 - Transparent prism and planet now share the exact projected radius and center throughout entry/exit. Only surface opacity changes; Earth shaders and textures are prepared before the opening finishes.
 - Everything is plain text. The plane flyover and Argentina-mode entry were removed at the user's request; trophy, avatar charms, day/night, and other established interactions remain.
 - Like samples 1500 points and texture colors from the outgoing object, disperses them, then reassembles the next historical ball over2.15 seconds. Rapid taps coalesce into one queued change; other mode changes cancel and dispose the transition. Reduced motion changes the ball immediately.
+
+## Supplied sticker and level orbit revision (current behavior)
+
+- Click celebrations use29 stickers from the user's Argentina sheet, extracted and rearranged with the built-in imagegen tool into a transparent PNG atlas. This is a generated extraction, not a claim of pixel-for-pixel lossless processing. Dark-background gallery inspection checks separation, internal white detail and clean contours. Sprite UV windows preserve each sticker's aspect ratio.
+- There is now ordinary text; the rotating trophy-case interaction is removed. Like still uses its particle-reassembly transition.
+- Mooncake top face stands upright (local X90 degrees), with no parent roll, and rotates around the vertical axis. Portrait orbit has zero image-plane roll; its horizontal elliptical projection retains real front/back occlusion.

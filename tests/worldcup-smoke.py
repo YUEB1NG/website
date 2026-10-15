@@ -48,9 +48,9 @@ for i in range(24):
 assert len(set(seen))==24 and '1970 Telstar' in seen and '2026 Trionda' in seen
 checks.append('all 24 historical ball entries selectable');print('PASS all 24 historical ball entries selectable',flush=True)
 shot('revised-football');run('set','media','light');pause(100)
-click('#trophy-toggle');check('trophy case mode',"wabi.planet.mode==='trophy'");pause(500);shot('revised-trophy')
-click('#everything');check('everything is inert text',"document.querySelector('#everything').tagName==='SPAN'&&!document.querySelector('.flyover')&&wabi.planet.mode==='trophy'")
-click('#trophy-toggle');pause(3500)
+click('#there');check('there is inert text',"document.querySelector('#there').tagName==='SPAN'&&wabi.planet.mode==='football'")
+click('#everything');check('everything is inert text',"document.querySelector('#everything').tagName==='SPAN'&&!document.querySelector('.flyover')&&wabi.planet.mode==='football'")
+pause(3500)
 run('mouse','move','195','338');run('mouse','down');pause(650);run('mouse','up');pause(2100)
 check('hold gathers same sprites with full opacity',"wabi.orbit&&wabi.planet.orbitCount===20&&wabi.planet.particlePositions.every(p=>p.opacity===1)")
 check('tilted orbit has front and back',"wabi.planet.orbitDepth[0]<-.5&&wabi.planet.orbitDepth[1]>.5")

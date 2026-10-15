@@ -156,7 +156,7 @@ export function createTrophyCase():THREE.Group {
 
 /** A traditional short, scalloped pastry with a baked crust and raised floral stamp. */
 export function createMooncake():THREE.Group {
-  const root=new THREE.Group();root.name='scalloped mooncake';const cake=new THREE.Group();cake.rotation.x=.76;root.add(cake);
+  const root=new THREE.Group();root.name='scalloped mooncake';const cake=new THREE.Group();cake.rotation.x=Math.PI/2;root.add(cake);
   const crust=canvasTexture(512,512,ctx=>{
     ctx.fillStyle='#bf7a2b';ctx.fillRect(0,0,512,512);
     const shade=ctx.createRadialGradient(256,220,30,256,256,330);shade.addColorStop(0,'#e6ad55');shade.addColorStop(.7,'#c78b37');shade.addColorStop(1,'#97531c');ctx.fillStyle=shade;ctx.fillRect(0,0,512,512);

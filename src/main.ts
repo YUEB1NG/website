@@ -87,10 +87,9 @@ document.querySelectorAll<HTMLButtonElement>('[data-reveal]').forEach(button=>bu
   if(button.dataset.reveal==='word'){wordUnlocked=open;lastFlip=0;firstWord=true;flipping=false;flipWord.style.opacity='1';}
 }));
 $('#theme-toggle').addEventListener('click',()=>{toggleTheme();revealClock=10000;});
-function syncObject(){const p=planets.diagnostics;lastObjectName=p.name;$('#mooncake-toggle').setAttribute('aria-pressed',String(p.mooncake));$('#trophy-toggle').setAttribute('aria-pressed',String(p.mode==='trophy'));if(active)orb.setAttribute('aria-label',`${p.name}. Click to return to the transparent ring`);caption.textContent=p.mode==='football'?p.name:'';status.textContent=p.name;}
+function syncObject(){const p=planets.diagnostics;lastObjectName=p.name;$('#mooncake-toggle').setAttribute('aria-pressed',String(p.mooncake));if(active)orb.setAttribute('aria-label',`${p.name}. Click to return to the transparent ring`);caption.textContent=p.mode==='football'?p.name:'';status.textContent=p.name;}
 $('#mooncake-toggle').addEventListener('click',()=>{planets.toggleMooncake();syncObject();nameReturnClock=0;});
 $('#football-toggle').addEventListener('click',()=>{planets.nextFootball(reduced);syncObject();});
-$('#trophy-toggle').addEventListener('click',()=>{planets.toggleTrophy();syncObject();});
 $('#celebrate').addEventListener('click',()=>planets.celebrate(0,reduced));
 for(const event of ['contextmenu','selectstart','dragstart','copy'])document.addEventListener(event,e=>e.preventDefault());
 app.addEventListener('pointerdown',e=>{
