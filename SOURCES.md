@@ -23,21 +23,29 @@
 
 - Reference: https://ped.ro/ (browser observed 2026-10-14).
 - Main font: the site's served Neue Montreal WOFF; drafting labels: its Geist Mono WOFF2. The personalized Chinese name uses the system Chinese sans-serif fallback.
-- Matched interaction values: 1px rounded word button, 0.8em trigger type, 6px closed blur, 0.8 closed opacity, 0.6s reveal, white active trigger. The requested revision replaces the original red hover accent with blueprint blue `#2E6FFF`.
+- Matched interaction values: 1px rounded word button, 0.8em trigger type, 4px closed blur, full closed opacity, 1s reveal, white active trigger. The requested revision replaces the original red hover accent with blueprint blue `#2E6FFF`.
 - Pedro's original reveals extended paragraphs; this port keeps Wabi's three original lines and uses the same blur interaction within them.
 
 ## Personalized night globe and avatar
 
 - `public/earth-night.jpg`: NASA Earth Observatory, Black Marble 2016, 3600 × 1800 color map, downloaded unchanged from https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/144000/144898/BlackMarble_2016_01deg.jpg . Source page: https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/ . Credit: NASA Earth Observatory / NASA's Goddard Space Flight Center.
-- The WebGL shader projects that equirectangular map onto a sphere, rotates it at 0.09 radians/second (approximately 70 seconds per revolution), and applies restrained limb shading and a narrow blue atmosphere. The original 50px revealed radius and position are retained. The bottom 200px prism smoothly morphs into the Earth during ascent and returns on descent.
+- The 2026-10-15 revision uses Three.js sphere geometry with physical lighting, a soft painted albedo treatment, night-light emission, a small face, and a restrained atmospheric rim. Rotation is 0.065 radians/second. The 50px revealed sphere and 200px resting prism keep the original spring path. Re-entry cycles Earth, Mars, Jupiter, Saturn, Uranus, Neptune, Mercury, Venus, then Earth. Other planet maps are original procedural bands/craters; these are stylized illustrations, not scientific surface maps.
 - `public/avatar.jpg` is an unchanged copy of the user-supplied square photo. Circular cropping and its thin, separated border are CSS only. No identity inference or image generation is involved.
-- The original 8.8-second name cycle now alternates English and avatar + 悦饼, with the existing 0.7-second crossfade. Reduced-motion mode keeps the English state and stops Earth rotation.
+- The name remains still until clicked, then uses a 24-second English/avatar cycle and 1.6-second crossfades. Learn/Build/Share stays still until clicked, waits 8 seconds between changes, and fades whole words within a fixed-width container. Reduced-motion mode stops decorative rotation and automatic text changes.
 
 ## Browser implementation
 
-- This is a browser implementation, not an Expo/React Native build. It uses WebGL 1 plus DOM text, Pointer Events, and requestAnimationFrame.
+- This is a browser implementation, not an Expo/React Native build. Original glass/starfield uses WebGL 1; the small planetary surface uses Three.js/WebGL 2. Accessible DOM text, Pointer Events, and requestAnimationFrame control the interaction.
 - Stars and particles are refracted. DOM text remains accessible and selectable by browser assistive technology; unlike the native Skia canvas, text is not refracted when the prism is dragged across it.
 - Native haptics are omitted. Pointer movement subtly steers the particle cone; orientation events are used only when the browser already permits them. iOS motion permission is not requested automatically.
 - Pixel ratio is capped at 1.5 to limit full-screen GPU cost. When WebGL is unavailable, the page remains operable with a simplified CSS prism. Reduced-motion mode skips the opening, snaps positions, and stops continuous decorative motion.
 - No mobile-device or Safari hardware test has been performed. Chromium mobile viewport checks are not a physical-device test.
-- Upstream README states MIT; the supplied quattro4maggi snapshot has no standalone LICENSE. Fonts and art retain their original ownership. This local reference build includes provenance; public redistribution has not been performed.
+- Upstream README states MIT; the supplied quattro4maggi snapshot has no standalone LICENSE. Fonts and art retain their original ownership. This reference build includes provenance and is published on the configured Sites origin.
+
+## Three.js and theme revision, 2026-10-15
+
+- Three.js: https://threejs.org/docs/ (MIT). Day Earth map is served locally, downloaded unchanged from https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_atmos_2048.jpg .
+- Local day mode runs 07:00–18:59 and night mode 19:00–06:59 in the visitor device timezone. Theme refreshes on minute boundaries (within 60 seconds), page restore, and foreground return. No location request is made.
+- Safari mitigation keeps html/body and a fixed top safe-area strip in the current theme, updates theme-color, and reapplies on intro completion/pageshow. Related WebKit documentation: https://webkit.org/blog/11989/new-webkit-features-in-safari-15/ . Actual iPhone status-bar behavior still requires hardware verification.
+- X following-list access was unavailable without configured authorization. User explicitly deferred avatar replacement; existing source particles remain. No unverified accounts are represented as followed by YUEB1NG.
+- Skills discovered through find-skills: CloudAI-X/threejs-skills, fundamentals and materials, installed and read locally. https://github.com/CloudAI-X/threejs-skills

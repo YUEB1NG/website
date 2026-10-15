@@ -1,41 +1,49 @@
 import './style.css';
 import { Scene } from './scene';
 import { Blueprint } from './blueprint';
+import { Planets, planetNames } from './planets';
+import { syncTheme } from './theme';
 
 const $=<T extends HTMLElement>(selector:string)=>document.querySelector<T>(selector)!;
 const app=$('#wabi'),start=$<HTMLButtonElement>('#start'),orb=$<HTMLButtonElement>('#orb'),greeting=$('#greeting'),swipe=$('#swipe'),social=$<HTMLAnchorElement>('#social'),status=$('#status');
 const media=matchMedia('(prefers-reduced-motion: reduce)');
 const scene=new Scene($<HTMLCanvasElement>('#scene'));
+const planets=new Planets();
+let planetIndex=2,hasEntered=false,nameUnlocked=false,wordUnlocked=false;
+let orbit=false,holdTimer:ReturnType<typeof setTimeout>|undefined,held=false;
+function clearHold(){if(holdTimer!==undefined)clearTimeout(holdTimer);holdTimer=undefined;}
+function toggleOrbit(){orbit=!orbit;orb.setAttribute('aria-pressed',String(orbit));status.textContent=orbit?'Avatars gathered into an orbit. Long press again to release.':'Avatars released.';}
+let textOffset=67.2;
+const textTarget=()=>Math.min(height*.55+textOffset,height-180);
+function resetName(){nameUnlocked=false;revealClock=0;$('.name-line').classList.remove('profile');$('.english-name').inert=false;$('.profile-name').setAttribute('aria-hidden','true');$('.profile-name').tabIndex=-1;}
 let width=innerWidth,height=innerHeight,x=width/2,y=height,targetX=x,targetY=y,vx=0,vy=0,textY=height,textV=0,active=false,dragging=false,reduced=media.matches;
 let last=performance.now(),elapsed=0,revealClock=0,secondary=0,downX=0,downY=0,fromY=0,moved=false,tiltX=0,tiltY=0,smoothTiltX=0,smoothTiltY=0,pointer:number|null=null;
 let flipIndex=0,flipping=false,lastFlip=0,flipStart=0,pressedOrb=false;
 const words=['Learn','Build','Share'];
 const flipWord=$('#flip-word');
-const blueprint=new Blueprint(()=>{app.dataset.state=active?'revealed':'rest';app.inert=false;status.textContent='Swipe up or press Enter to start.';});
+const blueprint=new Blueprint(()=>{app.dataset.state=active?'revealed':'rest';app.inert=false;syncTheme();status.textContent='Swipe up or press Enter to start.';});
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
 
 function setWord(word:string){
-  flipWord.replaceChildren();flipWord.setAttribute('aria-label',word);
-  for(const char of word){const span=document.createElement('span');span.className='flip-char';span.setAttribute('aria-hidden','true');const i=document.createElement('i');i.className='outgoing';i.textContent=char;span.append(i);flipWord.append(span);}
+  flipWord.textContent=word;flipWord.setAttribute('aria-label',word);flipWord.style.opacity='1';
 }
-function beginFlip(now:number){
-  flipping=true;flipStart=now;const next=words[(flipIndex+1)%words.length];
-  [...flipWord.children].forEach((el,index)=>{const incoming=document.createElement('i');incoming.className='incoming';incoming.textContent=next[index]??' ';el.append(incoming);(el as HTMLElement).style.setProperty('--delay',`${index*.035}s`);el.classList.add('turn');});
-}
+function beginFlip(now:number){flipping=true;flipStart=now;flipWord.style.opacity='0';}
 setWord(words[0]);
 
 function resetReveals(){document.querySelectorAll<HTMLButtonElement>('[data-reveal]').forEach(button=>{button.setAttribute('aria-expanded','false');button.querySelector<HTMLElement>('.reveal-content')!.dataset.state='closed';});}
 function setActive(next:boolean){
-  const changed=active!==next;active=next;targetY=next?height*.4:height;targetX=width/2;
-  app.dataset.state=next?'revealed':'rest';orb.setAttribute('aria-label',next?'Rotating night Earth. Drag down to return':'Drag the prism up to enter');
+  const changed=active!==next;if(changed&&next){if(hasEntered)planetIndex=(planetIndex+1)%8;hasEntered=true;planets.select(planetIndex);}active=next;targetY=next?height*.4:height;targetX=width/2;
+  app.dataset.state=next?'revealed':'rest';orb.setAttribute('aria-label',next?`${planetNames[planetIndex]}. Click to return to the transparent ring`:`Transparent ring. Click to discover ${planetNames[hasEntered?(planetIndex+1)%8:2]}`);
+  orb.title=next?'Click: transparent ring · Long press or O: gather into orbit':'Click to discover the next planet';
+  if(!next){orbit=false;orb.setAttribute('aria-pressed','false');clearHold();}
   $('#back').setAttribute('aria-label',next?'Back to start':'Replay opening animation');
   $('#back').setAttribute('title',next?'Back to start':'Replay opening animation');
-  if(changed){revealClock=0;lastFlip=0;flipIndex=0;flipping=false;setWord(words[0]);$('.name-line').classList.remove('profile');$('.english-name').inert=false;$('.profile-name').setAttribute('aria-hidden','true');resetReveals();}
+  if(changed){revealClock=0;lastFlip=0;flipIndex=0;flipping=false;setWord(words[0]);resetName();wordUnlocked=false;resetReveals();}
   greeting.inert=!next;social.inert=!next;start.inert=next;
   greeting.style.pointerEvents=next?'auto':'none';social.style.pointerEvents=next?'auto':'none';
   if(!next&&greeting.contains(document.activeElement))start.focus({preventScroll:true});
   status.textContent=next?'Hi There. Click the blurred words to reveal them. Swipe down or press Escape to return.':'Swipe up or press Enter to start.';
-  if(reduced){x=targetX;y=targetY;vx=vy=0;textY=next?height*.55:height;textV=0;secondary=next?1:0;}
+  if(reduced){x=targetX;y=targetY;vx=vy=0;textY=next?textTarget():height;textV=0;secondary=next?1:0;}
 }
 function replay(){
   if(blueprint.active)return;
@@ -46,9 +54,11 @@ function replay(){
 }
 
 function resize(){
+  textOffset=parseFloat(getComputedStyle(greeting).fontSize)*2.4;
   const oldHeight=height,oldWidth=width;width=app.clientWidth;height=app.clientHeight;
   y=y/oldHeight*height;x=x/oldWidth*width;textY=textY/oldHeight*height;
   targetY=active?height*.4:height;targetX=width/2;
+  if(reduced){x=targetX;y=targetY;textY=active?textTarget():height;vx=vy=textV=0;}
   scene.resize(width,height);updateDOM();if(blueprint.active)blueprint.measure();
 }
 function updateDOM(){
@@ -66,30 +76,36 @@ orb.addEventListener('click',e=>{if(e.detail===0&&!blueprint.active)setActive(!a
 $('#back').addEventListener('click',()=>active?setActive(false):replay());
 document.querySelectorAll<HTMLButtonElement>('[data-reveal]').forEach(button=>button.addEventListener('click',()=>{
   const open=button.getAttribute('aria-expanded')!=='true';button.setAttribute('aria-expanded',String(open));button.querySelector<HTMLElement>('.reveal-content')!.dataset.state=open?'open':'closed';
-  if(button.dataset.reveal==='name')revealClock=0;
+  if(button.dataset.reveal==='name'){nameUnlocked=open;revealClock=0;if(!open)resetName();}
+  if(button.dataset.reveal==='word'){wordUnlocked=open;lastFlip=0;flipping=false;flipWord.style.opacity='1';}
 }));
+$('.profile-name').addEventListener('click',()=>{resetName();const button=$<HTMLButtonElement>('[data-reveal=name]');button.setAttribute('aria-expanded','false');$('#name-content').dataset.state='closed';button.focus({preventScroll:true});});
 app.addEventListener('pointerdown',e=>{
   if(blueprint.active||e.button!==0||pointer!==null)return;
   const el=e.target as HTMLElement;if(el.closest('a,button')&&el!==orb)return;
-  pressedOrb=el===orb;pointer=e.pointerId;dragging=true;moved=false;downX=e.clientX;downY=e.clientY;fromY=y;app.setPointerCapture(pointer);
+  pressedOrb=el===orb;held=false;pointer=e.pointerId;dragging=true;moved=false;downX=e.clientX;downY=e.clientY;fromY=y;app.setPointerCapture(pointer);
+  if(pressedOrb&&active)holdTimer=setTimeout(()=>{if(!moved&&dragging){held=true;toggleOrbit();}},550);
 });
 app.addEventListener('pointermove',e=>{
   tiltX=clamp((e.clientX-width/2)/(width/2),-1,1)*.3;tiltY=clamp((e.clientY-height/2)/(height/2),-1,1)*.2;
   if(!dragging||pointer!==e.pointerId)return;
-  const dx=e.clientX-downX,dy=e.clientY-downY;if(Math.hypot(dx,dy)>6)moved=true;
+  const dx=e.clientX-downX,dy=e.clientY-downY;if(Math.hypot(dx,dy)>6){moved=true;clearHold();}
   targetY=clamp(fromY+dy,0,height);targetX=clamp(width/2+dx,0,width);
   if(reduced){x=targetX;y=targetY;}
 });
 function endDrag(e:PointerEvent){
   if(pointer!==e.pointerId)return;
+  clearHold();
   dragging=false;pointer=null;if(app.hasPointerCapture(e.pointerId))app.releasePointerCapture(e.pointerId);
   if(e.type==='pointercancel'){setActive(active);return;}
-  if(moved)setActive(targetY<(height*.4+height)/2);else if(pressedOrb)setActive(!active);else{targetY=active?height*.4:height;targetX=width/2;}
+  if(moved)setActive(targetY<(height*.4+height)/2);else if(pressedOrb&&!held)setActive(!active);else{targetY=active?height*.4:height;targetX=width/2;}
 }
+orb.addEventListener('contextmenu',e=>e.preventDefault());
 app.addEventListener('pointerup',endDrag);app.addEventListener('pointercancel',endDrag);
 app.addEventListener('lostpointercapture',()=>{if(dragging){dragging=false;pointer=null;setActive(active);}});
 app.addEventListener('wheel',e=>{if(blueprint.active)return;e.preventDefault();if(Math.abs(e.deltaY)>12)setActive(e.deltaY>0);},{passive:false});
 window.addEventListener('keydown',e=>{
+  if(e.key.toLowerCase()==='o'&&active&&!blueprint.active){e.preventDefault();toggleOrbit();return;}
   if(e.key==='Escape'){if(blueprint.active)blueprint.finish();else setActive(false);return;}
   if(blueprint.active||document.activeElement?.matches('button,a'))return;
   if(['ArrowUp','Enter',' '].includes(e.key)){e.preventDefault();setActive(true);}
@@ -97,6 +113,8 @@ window.addEventListener('keydown',e=>{
 });
 window.addEventListener('deviceorientation',e=>{if(e.gamma!==null)tiltX=clamp(e.gamma/35,-1,1);if(e.beta!==null)tiltY=clamp((e.beta-45)/45,-1,1);});
 window.addEventListener('resize',resize);
+// Safari's dynamic viewport may settle after the window resize event.
+new ResizeObserver(()=>{if(app.clientWidth!==width||app.clientHeight!==height)resize();}).observe(app);
 media.addEventListener('change',()=>{reduced=media.matches;if(reduced){blueprint.finish();setActive(active);}});
 
 function tick(now:number){
@@ -108,29 +126,35 @@ function tick(now:number){
     for(let i=0;i<steps;i++){
       const stiffness=dragging?300:550,damping=dragging?30:140,mass=dragging?3:9;
       vx+=((targetX-x)*stiffness-vx*damping)/mass*step;vy+=((targetY-y)*stiffness-vy*damping)/mass*step;x+=vx*step;y+=vy*step;
-      const ty=dragging?clamp(targetY,height*.55,height):active?height*.55:height;
+      const ty=dragging?clamp(targetY,textTarget(),height):active?textTarget():height;
       textV+=((ty-textY)*900-textV*120)/4*step;textY+=textV*step;
     }
     secondary=clamp(secondary+(active?1:-1)*dt/.7,0,1);
   }
   smoothTiltX+=(tiltX-smoothTiltX)*.08;smoothTiltY+=(tiltY-smoothTiltY)*.08;
   if(active&&!blueprint.active){
-    revealClock+=dt*1000;lastFlip+=dt*1000;
-    const interacting=$('.english-name').matches(':hover,:focus-within');
-    if(!reduced&&!interacting){const profile=revealClock%8800>=3700&&revealClock%8800<8100;$('.name-line').classList.toggle('profile',profile);$('.english-name').inert=profile;$('.profile-name').setAttribute('aria-hidden',String(!profile));}
-    else{$('.name-line').classList.remove('profile');$('.english-name').inert=false;$('.profile-name').setAttribute('aria-hidden','true');}
-    if(!reduced&&lastFlip>=2200&&!flipping)beginFlip(now);
-    if(flipping&&now-flipStart>=950){flipIndex=(flipIndex+1)%words.length;setWord(words[flipIndex]);flipping=false;lastFlip=0;}
+    if(nameUnlocked)revealClock+=dt*1000;
+    if(wordUnlocked)lastFlip+=dt*1000;
+    const keyboardFocus=$('.english-name button').matches(':focus-visible');
+    const holdProfile=$('.name-line').classList.contains('profile')&&$('.profile-name').matches(':hover,:focus-visible');
+    const profile=nameUnlocked&&!reduced&&!keyboardFocus&&(holdProfile||(revealClock%24000>=10000&&revealClock%24000<22000));
+    $('.name-line').classList.toggle('profile',profile);$('.english-name').inert=profile;$('.profile-name').setAttribute('aria-hidden',String(!profile));$('.profile-name').tabIndex=profile?0:-1;
+    if(wordUnlocked&&!reduced&&lastFlip>=8000&&!flipping)beginFlip(now);
+    if(flipping&&now-flipStart>=800){flipIndex=(flipIndex+1)%words.length;setWord(words[flipIndex]);flipping=false;lastFlip=0;}
   }
-  const radius=updateDOM();scene.render({x,y,radius,active:active&&!blueprint.active,time:elapsed,dt,reduced,tiltX:smoothTiltX,tiltY:smoothTiltY});
+
+  const radius=updateDOM();const day=document.documentElement.dataset.theme==='day';
+  const morph=clamp((200-radius-95)/55,0,1),planetMix=planets.available?morph*morph*(3-2*morph):0;
+  scene.render({x,y,radius,active:active&&!blueprint.active,time:elapsed,dt,reduced,tiltX:smoothTiltX,tiltY:smoothTiltY,day,planetMix,orbit});
+  planets.render(x,y,radius,planetMix,dt,reduced,day);
   requestAnimationFrame(tick);
 }
 // rAF is suspended by the browser in background tabs; reset timestamps on return.
 document.addEventListener('visibilitychange',()=>{last=performance.now();});
 resize();
-await Promise.all([document.fonts.ready,scene.ready]);
+await Promise.all([document.fonts.ready,scene.ready,planets.ready]);
 resize();
 if(!reduced){app.inert=true;blueprint.start();}else{app.dataset.state='rest';$('#blueprint').hidden=true;}
 last=performance.now();requestAnimationFrame(tick);
 // Read-only diagnostics used by the browser smoke check.
-Object.defineProperty(window,'wabi',{value:{get state(){return app.dataset.state},get renderer(){return scene.renderer},get earth(){return scene.earth},get position(){return {x,y,radius:200-150*clamp((height-y)/(height*.6),0,1)}}},writable:false});
+Object.defineProperty(window,'wabi',{value:{get state(){return app.dataset.state},get orbit(){return orbit},get renderer(){return scene.renderer},get earth(){return planets.diagnostics},get planet(){return planets.diagnostics},get theme(){return document.documentElement.dataset.theme},get position(){return {x,y,radius:200-150*clamp((height-y)/(height*.6),0,1)}}},writable:false});
