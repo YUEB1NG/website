@@ -9,7 +9,7 @@ const app=$('#wabi'),start=$<HTMLButtonElement>('#start'),orb=$<HTMLButtonElemen
 const media=matchMedia('(prefers-reduced-motion: reduce)');
 const scene=new Scene($<HTMLCanvasElement>('#scene'));
 const planets=new Planets();
-let entryAge=0,socialAlpha=0,nameReturnClock=-1,firstWord=true,pressedParticle:number|null=null,lastObjectName='';
+let entryAge=0,socialAlpha=0,firstWord=true,pressedParticle:number|null=null,lastObjectName='';
 const caption=$('#object-caption');
 let planetIndex=2,hasEntered=false,nameUnlocked=false,wordUnlocked=false;
 let orbit=false,holdTimer:ReturnType<typeof setTimeout>|undefined,held=false;
@@ -17,7 +17,7 @@ function clearHold(){if(holdTimer!==undefined)clearTimeout(holdTimer);holdTimer=
 function toggleOrbit(){orbit=!orbit;orb.setAttribute('aria-pressed',String(orbit));status.textContent=orbit?'Avatars gathered into an orbit. Long press again to release.':'Avatars released.';}
 let textOffset=67.2;
 const textTarget=()=>Math.min(height*.55+textOffset,height-180);
-function resetName(){nameUnlocked=false;revealClock=0;nameReturnClock=-1;$('.name-line').classList.remove('profile');$('.english-name').inert=false;$('.profile-name').setAttribute('aria-hidden','true');$('.profile-name').inert=true;const b=$('[data-reveal=name]');b.setAttribute('aria-expanded','false');$('#name-content').dataset.state='closed';}
+function resetName(){nameUnlocked=false;revealClock=0;$('.name-line').classList.remove('profile');$('.english-name').inert=false;$('.profile-name').setAttribute('aria-hidden','true');$('.profile-name').inert=true;const b=$('[data-reveal=name]');b.setAttribute('aria-expanded','false');$('#name-content').dataset.state='closed';}
 let width=innerWidth,height=innerHeight,x=width/2,y=height,targetX=x,targetY=y,vx=0,vy=0,textY=height,textV=0,active=false,dragging=false,reduced=media.matches;
 let last=performance.now(),elapsed=0,revealClock=0,secondary=0,downX=0,downY=0,fromY=0,moved=false,tiltX=0,tiltY=0,smoothTiltX=0,smoothTiltY=0,pointer:number|null=null;
 let flipIndex=0,flipping=false,lastFlip=0,flipStart=0,pressedOrb=false;
@@ -83,12 +83,11 @@ orb.addEventListener('click',e=>{if(e.detail===0&&!blueprint.active)setActive(!a
 $('#back').addEventListener('click',()=>active?setActive(false):replay());
 document.querySelectorAll<HTMLButtonElement>('[data-reveal]').forEach(button=>button.addEventListener('click',()=>{
   const open=button.getAttribute('aria-expanded')!=='true';button.setAttribute('aria-expanded',String(open));button.querySelector<HTMLElement>('.reveal-content')!.dataset.state=open?'open':'closed';
-  if(button.dataset.reveal==='name'){nameUnlocked=open;revealClock=0;nameReturnClock=-1;if(!open)resetName();}
+  if(button.dataset.reveal==='name'){nameUnlocked=open;revealClock=0;if(!open)resetName();}
   if(button.dataset.reveal==='word'){wordUnlocked=open;lastFlip=0;firstWord=true;flipping=false;flipWord.style.opacity='1';}
 }));
 $('#theme-toggle').addEventListener('click',()=>{toggleTheme();revealClock=10000;});
-function syncObject(){const p=planets.diagnostics;lastObjectName=p.name;$('#mooncake-toggle').setAttribute('aria-pressed',String(p.mooncake));if(active)orb.setAttribute('aria-label',`${p.name}. Click to return to the transparent ring`);caption.textContent=p.mode==='football'?p.name:'';status.textContent=p.name;}
-$('#mooncake-toggle').addEventListener('click',()=>{planets.toggleMooncake();syncObject();nameReturnClock=0;});
+function syncObject(){const p=planets.diagnostics;lastObjectName=p.name;if(active)orb.setAttribute('aria-label',`${p.name}. Click to return to the transparent ring`);caption.textContent=p.mode==='football'?p.name:'';status.textContent=p.name;}
 $('#football-toggle').addEventListener('click',()=>{planets.nextFootball(reduced);syncObject();});
 $('#celebrate').addEventListener('click',()=>planets.celebrate(0,reduced));
 for(const event of ['contextmenu','selectstart','dragstart','copy'])document.addEventListener(event,e=>e.preventDefault());
@@ -149,7 +148,6 @@ function tick(now:number){
   smoothTiltX+=(tiltX-smoothTiltX)*.08;smoothTiltY+=(tiltY-smoothTiltY)*.08;
   if(active&&!blueprint.active){
     if(nameUnlocked)revealClock+=dt*1000;
-    if(nameReturnClock>=0){nameReturnClock+=dt*1000;if(nameReturnClock>=2200){const focus=$('.profile-name').contains(document.activeElement);resetName();if(focus)$('[data-reveal=name]').focus({preventScroll:true});}}
     if(wordUnlocked)lastFlip+=dt*1000;
     const profile=nameUnlocked&&(reduced||revealClock>=1800);
     const transferFocus=profile&&!$('.name-line').classList.contains('profile')&&$('.english-name button').matches(':focus-visible');

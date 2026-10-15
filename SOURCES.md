@@ -88,8 +88,15 @@ This section supersedes the earlier spherical mooncake, retained profile, eight-
 - Everything is plain text. The plane flyover and Argentina-mode entry were removed at the user's request; trophy, avatar charms, day/night, and other established interactions remain.
 - Like samples 1500 points and texture colors from the outgoing object, disperses them, then reassembles the next historical ball over2.15 seconds. Rapid taps coalesce into one queued change; other mode changes cancel and dispose the transition. Reduced motion changes the ball immediately.
 
-## Supplied sticker and level orbit revision (current behavior)
+## Supplied sticker and level orbit revision
 
 - Click celebrations use29 stickers from the user's Argentina sheet, extracted and rearranged with the built-in imagegen tool into a transparent PNG atlas. This is a generated extraction, not a claim of pixel-for-pixel lossless processing. Dark-background gallery inspection checks separation, internal white detail and clean contours. Sprite UV windows preserve each sticker's aspect ratio.
 - There is now ordinary text; the rotating trophy-case interaction is removed. Like still uses its particle-reassembly transition.
 - Mooncake top face stands upright (local X90 degrees), with no parent roll, and rotates around the vertical axis. Portrait orbit has zero image-plane roll; its horizontal elliptical projection retains real front/back occlusion.
+
+## Portrait depth and spacing refinement (current behavior)
+
+- Existing local skills used: impeccable-design-polish and emilkowalski-motion. The local catalog search did not identify a dedicated portrait-orbit layout skill. Existing page layout and assets are preserved.
+- A512-segment projected ellipse arc-length lookup spaces20 portraits evenly on screen. Radius2.15 sphere units, incline1.23 radians with front/below and rear/above depth direction, phase speed0.11 rad/s. Portrait diameters vary gently from0.29 to0.43 sphere units with depth; opacity remains1 and depth testing retains real globe occlusion.
+- Profile ring background follows the page in both themes, with identical2px padding and a1px border. Day mode no longer fills the gap with black.
+- 悦饼 is ordinary text. The mooncake mode/trigger is removed; the revealed profile remains available for day/night switching until leaving the scene. Like, stickers and all ten celestial bodies remain.
