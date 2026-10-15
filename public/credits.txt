@@ -13,3 +13,9 @@ https://github.com/mrdoob/three.js/tree/dev/examples/textures/planets
 
 Other source references and original Wabi artwork are documented in SOURCES.md.
 Mooncake geometry, crust texture, and relief motifs are procedural original work.
+
+Moon and Sun maps use the same Solar System Scope CC BY4.0 attribution above.
+World Cup footballs, trophy, Argentina crest and football charms are original
+stylized procedural/vector studies, not official meshes or texture reproductions.
+Design references: FIFA ball/trophy history, adidas ball history, AFA identity,
+and https://doodles.google/doodle/2022-world-cup-finals/ .

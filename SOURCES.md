@@ -60,3 +60,24 @@ This section supersedes the earlier Q-style face, procedural planet maps, automa
 - The spherical mooncake is original procedural geometry: shallow flutes, baked crust grain, and raised floral stamps. No emoji artwork is used. Clicking 悦饼 toggles back to the selected planet.
 - Avatar and 悦饼 are separate keyboard-accessible buttons, shifted left by 0.375em. Name reveal exposes and retains these buttons. Avatar toggles day/night and persists `yueb1ng-theme` in localStorage; unavailable storage falls back to session state. Night preserves the Wabi starfield with slower 0.22-rad/sec twinkling.
 - `user-select`, iOS touch callout, contextmenu, selection, dragstart, and copy are disabled as explicitly requested. This prevents ordinary accidental long-press UI, not screenshotting or source inspection.
+
+## World Cup interaction revision, 2026-10-15 (current behavior)
+
+This section supersedes the earlier spherical mooncake, retained profile, eight-body list, and separate fading particle layers.
+
+- Ten celestial surfaces now include Moon and Sun from the same attributed Solar System Scope distribution. Spin: 0.045 rad/s; orbital angular speed: 0.16 rad/s. Reduced-motion disables decorative motion.
+- A full-viewport Three.js layer renders the same20 sprites along continuously blended free-flight/orbit paths. Alpha remains1; depth provides occlusion. The native ring material fades out before avatars occupy the ring. WebGL1 still renders the underlying starfield/prism; the new Three.js sprites are not refracted by the WebGL1 composite.
+- Mooncake: original short scalloped cylinder, fluted edge, floral top relief. Trophy/crest: original simplified sculptures based on FIFA/AFA references below; no official CAD mesh or logo image was copied.
+- Football:24 principal designs covering every men's tournament1930–2026 and both1930 final balls. Original procedural stylizations, not exact manufacturing patterns, and not every finals/knockout recolour. Classic Telstar uses12 pentagon /20 hexagon topology.
+- Google reference visually inspected: https://doodles.google/doodle/2022-world-cup-finals/ . The user-supplied Xiaohongshu short link could not be read due to connection closure. No Xiaohongshu asset was copied or claimed as inspected.
+- Additional charms and team-number keychains are original SVG code. Q-style real-player portrait generation was rejected by the image tool; the deployed fallback is explicitly team-number badges, not portraits. New background image has not been provided, so no photograph was substituted.
+- Profile now shares the exact horizontal center; clicking 悦饼 schedules a sequential crossfade back to English after2.2 seconds. Learn first begins its change after1 second, subsequent intervals7.5 seconds, opacity fades0.3 seconds. Footer dimming begins with downward drag and also observes actual text clearance.
+
+### Primary football and sculpture references
+
+- FIFA ball history: https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/ball-balls-history
+- adidas design history: https://www.adidas-group.com/en/magazine/innovation/how-adidas-has-shaped-the-history-of-world-cup-balls-from-1970-to-the-present-day
+- adidas Trionda: https://news.adidas.com/world-cup-2026/adidas-unveils--trionda----the-official-match-ball-of-the-fifa-world-cup26-/s/27042e3a-12ba-482d-8839-8a96e056b33e
+- FIFA trophy: https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/trophy-design-history-jules-rimet
+- FIFA malachite base: https://inside.fifa.com/tournaments/mens/worldcup/2018russia/news/april-1--wc-countdown-74-days-to-go-2934121
+- AFA brand manual (search indexed, large PDF not fully fetched): https://assets1.afa.com.ar/torneo/Lea/2025/ENERO/Boletin-Complementario-6624-01-Manual-de-Marca-de-AFA-%2806-02-2025%29.pdf

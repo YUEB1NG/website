@@ -10,7 +10,8 @@ float hash12(vec2 p){vec3 p3=fract(vec3(p.x,p.y,p.x)*.1031);p3+=dot(p3,vec3(p3.y
 void main(){vec2 p=vec2(gl_FragCoord.x,resolution.y-gl_FragCoord.y);vec2 q=p/pixelRatio;float d=pow(hash12(q),3.);float mult=.55+.45*(sin(.22*time+q.x+q.y)+1.)*.5;d=smoothstep(.99,1.,d)*mult;vec4 image=texture2D(layer,p/resolution);gl_FragColor=vec4(mix(mix(vec3(d),vec3(.957,.965,.98)-vec3(d*.12),day),image.rgb,image.a),1.);}`;
 
 type Particle = { image: HTMLImageElement; progress:number; delay:number; speed:number; x:number; y:number; endX:number; endY:number };
-export interface Frame { x:number; y:number; radius:number; active:boolean; time:number; dt:number; reduced:boolean; tiltX:number; tiltY:number; day:boolean; planetMix:number; orbit:boolean }
+export interface Frame { x:number; y:number; radius:number; active:boolean; time:number; dt:number; reduced:boolean; tiltX:number; tiltY:number; day:boolean; planetMix:number; orbit:boolean; threeParticles:boolean }
+export type ParticleFrame={x:number;y:number;size:number;visible:boolean};
 
 export class Scene {
   private gl: WebGLRenderingContext | null;
@@ -26,15 +27,17 @@ export class Scene {
   private elapsed=0; private active=false;
   private orbitMix=0;
   private particles: Particle[]=[];
+  readonly particleFrames:ParticleFrame[]=[];
   private fallback?:HTMLDivElement;
   private lost=false;
   readonly ready:Promise<unknown>;
 
   constructor(private canvas:HTMLCanvasElement) {
     this.gl=canvas.getContext('webgl',{alpha:false,antialias:false,powerPreference:'low-power',preserveDrawingBuffer:true});
-    this.ready=Promise.all([...bubbleImages.map((src,index)=>new Promise<void>(resolve=>{
+    this.ready=Promise.all([...bubbleImages.slice(0,20).map((src,index)=>new Promise<void>(resolve=>{
       const image=new Image(); image.onload=()=>resolve(); image.onerror=()=>resolve(); image.src=src;
       this.particles.push({image,progress:0,delay:index*200,speed:.00028*(.5+Math.random()*1.3),x:0,y:0,endX:0,endY:0});
+      this.particleFrames.push({x:0,y:0,size:0,visible:false});
     }))]);
     try { if(this.gl) this.initialize(); else this.enableFallback(); }
     catch(error){console.error('Wabi WebGL initialization:',error); this.gl=null;this.enableFallback();}
@@ -83,21 +86,23 @@ export class Scene {
     const length=(p.y+80)/Math.sin(angle);p.endX=p.x+length*Math.cos(angle);p.endY=p.y-length*Math.sin(angle);p.progress=0;
   }
   render(frame:Frame){
-    this.orbitMix=frame.reduced?(frame.orbit?1:0):this.orbitMix+((frame.orbit?1:0)-this.orbitMix)*(1-Math.exp(-frame.dt*3));
+    this.orbitMix=frame.reduced?(frame.orbit?1:0):this.orbitMix+((frame.orbit?1:0)-this.orbitMix)*(1-Math.exp(-frame.dt*1.6));
     if(this.fallback){Object.assign(this.fallback.style,{left:`${frame.x-frame.radius}px`,top:`${frame.y-frame.radius}px`,width:`${frame.radius*2}px`,height:`${frame.radius*2}px`});return;}
     const gl=this.gl!;if(this.lost)return;
     if(frame.active&&!this.active){this.elapsed=0;this.particles.forEach(p=>this.reset(p));}
     this.active=frame.active;if(frame.active)this.elapsed+=frame.dt*1000;
     const ctx=this.ctx;ctx.clearRect(0,0,this.paint.width,this.paint.height);ctx.save();ctx.scale(this.ratio,this.ratio);
-    if((!frame.reduced&&this.elapsed>=600)||frame.orbit){for(const p of this.particles){
-      if(this.orbitMix<.001&&(this.elapsed<600+p.delay||(!frame.active&&p.progress===0)))continue;
-      if(!frame.orbit&&!frame.reduced)p.progress+=p.speed*frame.dt*1000;
-      if(p.progress>=1){if(frame.active)this.reset(p);else continue;}
-      const t=p.progress,scale=Math.min(1,t/.15),size=70*scale;
+    this.particleFrames.forEach(p=>p.visible=false);
+    if((!frame.reduced&&this.elapsed>=1500)||frame.orbit){for(const [i,p] of this.particles.entries()){
+      if(this.orbitMix<.001&&(this.elapsed<1500+p.delay||(!frame.active&&p.progress===0)))continue;
+      if(!frame.reduced)p.progress+=p.speed*frame.dt*1000;
+      if(this.orbitMix>.001)p.progress=Math.min(p.progress,1.15);
+      if(p.progress>=1&&this.orbitMix<.001){if(frame.active)this.reset(p);else continue;}
+      const t=p.progress,scale=Math.min(1,t/.3),size=48*scale;
       const x=p.x+(p.endX-p.x)*t+35-size/2+frame.tiltX*frame.radius;
       const y=p.y+(p.endY-p.y)*t+35-size/2+Math.min(frame.tiltY*frame.radius,0);
-      ctx.globalAlpha=1-this.orbitMix;
-      if(p.image.complete&&p.image.naturalWidth)ctx.drawImage(p.image,x,y,size,size);
+      this.particleFrames[i]={x:x+size/2,y:y+size/2,size,visible:true};
+      if(!frame.threeParticles&&p.image.complete&&p.image.naturalWidth)ctx.drawImage(p.image,x,y,size,size);
     }}ctx.restore();
     const w=this.canvas.width,h=this.canvas.height,[base,prism]=this.programs;
     this.use(base);gl.bindFramebuffer(gl.FRAMEBUFFER,this.framebuffer!);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.layer!);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,this.paint);
