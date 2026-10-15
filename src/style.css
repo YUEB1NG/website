@@ -46,11 +46,6 @@ html,body,#wabi,#wabi *{-webkit-user-select:none;user-select:none;-webkit-touch-
 .flip-word{transition:opacity .3s ease}
 #planet-scene{inset:0;left:0;top:0;width:100%;height:100%;transform:none;pointer-events:none;z-index:1}
 .object-caption{position:absolute;transform:translateX(-50%);margin:0;font:10px Geist Mono,monospace;letter-spacing:.03em;color:var(--ink);white-space:nowrap;pointer-events:none;z-index:2;transition:opacity .4s}
-.flyover{position:absolute;top:0;left:50%;width:min(88vw,460px);z-index:8;pointer-events:none;will-change:transform}
-.flyover[hidden]{display:none}
-.flyover svg{display:block;width:100%;overflow:visible}
-.flying-banner{transform-origin:230px 260px;animation:banner-wave 2s ease-in-out infinite alternate}
-@keyframes banner-wave{from{transform:skewY(-1.5deg)}to{transform:skewY(1.5deg)}}
 #celebrate:focus-visible{clip:auto;width:auto;height:auto;bottom:10px;left:50%;transform:translateX(-50%);background:var(--page);padding:8px;z-index:12}
 /* Sequential crossfade avoids superimposing the English name and Chinese profile. */
 .english-name{transition:opacity .65s ease .55s}

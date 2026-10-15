@@ -61,7 +61,7 @@ This section supersedes the earlier Q-style face, procedural planet maps, automa
 - Avatar and 悦饼 are separate keyboard-accessible buttons, shifted left by 0.375em. Name reveal exposes and retains these buttons. Avatar toggles day/night and persists `yueb1ng-theme` in localStorage; unavailable storage falls back to session state. Night preserves the Wabi starfield with slower 0.22-rad/sec twinkling.
 - `user-select`, iOS touch callout, contextmenu, selection, dragstart, and copy are disabled as explicitly requested. This prevents ordinary accidental long-press UI, not screenshotting or source inspection.
 
-## World Cup interaction revision, 2026-10-15 (current behavior)
+## World Cup interaction revision, 2026-10-15
 
 This section supersedes the earlier spherical mooncake, retained profile, eight-body list, and separate fading particle layers.
 
@@ -81,3 +81,9 @@ This section supersedes the earlier spherical mooncake, retained profile, eight-
 - FIFA trophy: https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/trophy-design-history-jules-rimet
 - FIFA malachite base: https://inside.fifa.com/tournaments/mens/worldcup/2018russia/news/april-1--wc-countdown-74-days-to-go-2934121
 - AFA brand manual (search indexed, large PDF not fully fetched): https://assets1.afa.com.ar/torneo/Lea/2025/ENERO/Boletin-Complementario-6624-01-Manual-de-Marca-de-AFA-%2806-02-2025%29.pdf
+
+## Transition refinement, 2026-10-15 (current behavior)
+
+- Transparent prism and planet now share the exact projected radius and center throughout entry/exit. Only surface opacity changes; Earth shaders and textures are prepared before the opening finishes.
+- Everything is plain text. The plane flyover and Argentina-mode entry were removed at the user's request; trophy, avatar charms, day/night, and other established interactions remain.
+- Like samples 1500 points and texture colors from the outgoing object, disperses them, then reassembles the next historical ball over2.15 seconds. Rapid taps coalesce into one queued change; other mode changes cancel and dispose the transition. Reduced motion changes the ball immediately.

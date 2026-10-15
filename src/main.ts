@@ -3,15 +3,13 @@ import { Scene } from './scene';
 import { Blueprint } from './blueprint';
 import { Planets, planetNames } from './planets';
 import { syncTheme, toggleTheme } from './theme';
-import { Flyover } from './flyover';
 
 const $=<T extends HTMLElement>(selector:string)=>document.querySelector<T>(selector)!;
 const app=$('#wabi'),start=$<HTMLButtonElement>('#start'),orb=$<HTMLButtonElement>('#orb'),greeting=$('#greeting'),swipe=$('#swipe'),social=$<HTMLAnchorElement>('#social'),status=$('#status');
 const media=matchMedia('(prefers-reduced-motion: reduce)');
 const scene=new Scene($<HTMLCanvasElement>('#scene'));
 const planets=new Planets();
-const flyover=new Flyover();
-let argentina=false,entryAge=0,socialAlpha=0,nameReturnClock=-1,firstWord=true,pressedParticle:number|null=null;
+let entryAge=0,socialAlpha=0,nameReturnClock=-1,firstWord=true,pressedParticle:number|null=null,lastObjectName='';
 const caption=$('#object-caption');
 let planetIndex=2,hasEntered=false,nameUnlocked=false,wordUnlocked=false;
 let orbit=false,holdTimer:ReturnType<typeof setTimeout>|undefined,held=false;
@@ -39,7 +37,7 @@ function setActive(next:boolean){
   const changed=active!==next;if(changed&&next){if(hasEntered)planetIndex=(planetIndex+1)%planetNames.length;hasEntered=true;planets.select(planetIndex);syncObject();}active=next;targetY=next?height*.4:height;targetX=width/2;
   app.dataset.state=next?'revealed':'rest';orb.setAttribute('aria-label',next?`${planetNames[planetIndex]}. Click to return to the transparent ring`:`Transparent ring. Click to discover ${planetNames[hasEntered?(planetIndex+1)%planetNames.length:2]}`);
   orb.title=next?'Click: transparent ring · Long press or O: gather into orbit':'Click to discover the next planet';
-  if(!next){orbit=false;orb.setAttribute('aria-pressed','false');clearHold();clearArgentina();}
+  if(!next){orbit=false;orb.setAttribute('aria-pressed','false');clearHold();planets.cancelFootball();}
   $('#back').setAttribute('aria-label',next?'Back to start':'Replay opening animation');
   $('#back').setAttribute('title',next?'Back to start':'Replay opening animation');
   if(changed){entryAge=0;socialAlpha=0;revealClock=0;lastFlip=0;flipIndex=0;firstWord=true;flipping=false;setWord(words[0]);resetName();wordUnlocked=false;resetReveals();}
@@ -89,16 +87,10 @@ document.querySelectorAll<HTMLButtonElement>('[data-reveal]').forEach(button=>bu
   if(button.dataset.reveal==='word'){wordUnlocked=open;lastFlip=0;firstWord=true;flipping=false;flipWord.style.opacity='1';}
 }));
 $('#theme-toggle').addEventListener('click',()=>{toggleTheme();revealClock=10000;});
-function syncObject(){const p=planets.diagnostics;$('#mooncake-toggle').setAttribute('aria-pressed',String(p.mooncake));$('#trophy-toggle').setAttribute('aria-pressed',String(p.mode==='trophy'));orb.setAttribute('aria-label',`${p.name}. Click to return to the transparent ring`);caption.textContent=p.mode==='football'?p.name:'';status.textContent=p.name;}
-function clearArgentina(){argentina=false;flyover.cancel();app.classList.remove('argentina-mode');$('#argentina-toggle').setAttribute('aria-pressed','false');}
-$('#mooncake-toggle').addEventListener('click',()=>{clearArgentina();planets.toggleMooncake();syncObject();nameReturnClock=0;});
-$('#football-toggle').addEventListener('click',()=>{clearArgentina();planets.nextFootball();syncObject();});
-$('#trophy-toggle').addEventListener('click',()=>{clearArgentina();planets.toggleTrophy();syncObject();});
-$('#argentina-toggle').addEventListener('click',()=>{
-  if(argentina){clearArgentina();planets.setArgentina(false);syncObject();return;}
-  argentina=true;$('#argentina-toggle').setAttribute('aria-pressed','true');
-  flyover.play(reduced,()=>{if(!argentina||!active)return;app.classList.add('argentina-mode');planets.setArgentina(true);syncObject();});
-});
+function syncObject(){const p=planets.diagnostics;lastObjectName=p.name;$('#mooncake-toggle').setAttribute('aria-pressed',String(p.mooncake));$('#trophy-toggle').setAttribute('aria-pressed',String(p.mode==='trophy'));if(active)orb.setAttribute('aria-label',`${p.name}. Click to return to the transparent ring`);caption.textContent=p.mode==='football'?p.name:'';status.textContent=p.name;}
+$('#mooncake-toggle').addEventListener('click',()=>{planets.toggleMooncake();syncObject();nameReturnClock=0;});
+$('#football-toggle').addEventListener('click',()=>{planets.nextFootball(reduced);syncObject();});
+$('#trophy-toggle').addEventListener('click',()=>{planets.toggleTrophy();syncObject();});
 $('#celebrate').addEventListener('click',()=>planets.celebrate(0,reduced));
 for(const event of ['contextmenu','selectstart','dragstart','copy'])document.addEventListener(event,e=>e.preventDefault());
 app.addEventListener('pointerdown',e=>{
@@ -169,9 +161,10 @@ function tick(now:number){
   }
 
   const radius=updateDOM();const day=document.documentElement.dataset.theme==='day';
-  const morph=clamp((200-radius-95)/55,0,1),planetMix=planets.available?morph*morph*(3-2*morph):0;
+  const morph=clamp((160-radius)/110,0,1),planetMix=planets.available?morph*morph*(3-2*morph):0;
   scene.render({x,y,radius,active:active&&!blueprint.active,time:elapsed,dt,reduced,tiltX:smoothTiltX,tiltY:smoothTiltY,day,planetMix,orbit,threeParticles:planets.available});
   planets.render(x,y,radius,planetMix,dt,reduced,day,scene.orbitBlend,scene.particleFrames);
+  if(lastObjectName!==planets.objectName)syncObject();
   requestAnimationFrame(tick);
 }
 // rAF is suspended by the browser in background tabs; reset timestamps on return.
