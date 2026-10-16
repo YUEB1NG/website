@@ -6,6 +6,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { loadStickers } from './stickers';
 import { portraitOrbit } from './portrait-orbit';
 import { FootballTransition, createFootballParticles, prepareDissolve, prepareFootballSurface } from './football-transition';
+import { FluidGlass } from './fluid-glass';
 
 export const planetNames=['Mercury','Venus','Earth','Mars','Jupiter','Saturn','Uranus','Neptune','Moon','Sun'];
 const maps=['mercury','venus_surface','earth_daymap','mars','jupiter','saturn','uranus','neptune','moon','sun'];
@@ -20,6 +21,7 @@ export class Planets {
   private material=new THREE.MeshPhongMaterial({shininess:10,specular:0x18212b});
   private body=new THREE.Mesh(new THREE.SphereGeometry(1,80,56),this.material);
   private group=new THREE.Group();
+  private glass=new FluidGlass();
   private rings=new THREE.Group();
   private orbitSprites:THREE.Sprite[]=[];
   private naturalMaps:THREE.Texture[]=[];
@@ -67,7 +69,7 @@ export class Planets {
     this.camera.position.z=10;this.light.position.set(-3.2,2.1,4.5);
     const rim=new THREE.DirectionalLight(0xb8d7ff,.8);rim.position.set(3,1,-2);
     this.group.rotation.z=.12;this.group.add(this.body,this.rings);
-    this.scene.add(this.group,this.ambient,this.light,rim);
+    this.scene.add(this.group,this.ambient,this.light,rim,this.glass.mesh);
     this.atmosphere=new THREE.Mesh(new THREE.SphereGeometry(1.015,48,32),new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{opacity:{value:1}},
       vertexShader:`varying vec3 n;varying vec3 v;void main(){vec4 p=modelViewMatrix*vec4(position,1.);n=normalize(normalMatrix*normal);v=normalize(-p.xyz);gl_Position=projectionMatrix*p;}`,
       fragmentShader:`uniform float opacity;varying vec3 n;varying vec3 v;void main(){float rim=pow(1.-max(dot(normalize(n),normalize(v)),0.),4.);gl_FragColor=vec4(.22,.46,.8,rim*.18*opacity);}`
@@ -191,7 +193,7 @@ export class Planets {
     }
   }
   private removeBurst(b:Burst){this.scene.remove(b.sprite);b.sprite.material.dispose();this.bursts.splice(this.bursts.indexOf(b),1);}
-  render(x:number,y:number,radius:number,mix:number,dt:number,reduced:boolean,day:boolean,orbitMix:number,particles:ParticleFrame[]){
+  render(x:number,y:number,radius:number,mix:number,dt:number,reduced:boolean,day:boolean,orbitMix:number,particles:ParticleFrame[],dragging=false){
     const w=this.canvas.parentElement!.clientWidth,h=this.canvas.parentElement!.clientHeight;this.orbitMix=orbitMix;this.surfaceMix=mix;
     if(this.viewport!==`${w}/${h}`){this.viewport=`${w}/${h}`;this.renderer?.setSize(w,h,false);}
     this.camera.left=-w/(2*radius);this.camera.right=w/(2*radius);this.camera.top=h/(2*radius);this.camera.bottom=-h/(2*radius);this.camera.updateProjectionMatrix();this.group.position.set((x-w/2)/radius,(h/2-y)/radius,0);this.group.visible=mix>0;this.group.scale.setScalar(1);this.canvas.style.opacity=String(mix);
@@ -207,9 +209,14 @@ export class Planets {
     if(this.footballTransition?.tick(dt,radius,this.renderer!.getPixelRatio(),reduced)){
       const transition=this.footballTransition,queued=this.queuedFootball;transition.dispose();this.footballTransition=undefined;this.footballIndex=this.targetFootballIndex;this.footballCursor=footballPlayOrder.indexOf(this.footballIndex);this.setMode('football',transition.target);this.warmAhead();if(queued&&!reduced)this.nextFootball();
     }
-    this.scene.updateMatrixWorld();this.renderer!.render(this.scene,this.camera);
+    const progress=this.footballTransition?.diagnostics.progress;
+    // The glass follows the very same dissolve envelope as the solid surface;
+    // no shell remains during the particle-only part of a football change.
+    const glassPresence=progress===undefined?1:progress<.13?1-smooth(progress/.13):progress>.84?smooth((progress-.84)/.16):0;
+    this.glass.update(this.group,x,y,radius,dt,reduced,dragging,day,mix>.001?glassPresence:0);
+    this.scene.updateMatrixWorld();this.glass.render(this.renderer!,this.scene,this.camera);
   }
   get available(){return !!this.renderer&&!this.lost;}
   get objectName(){const edition=footballEditions[this.footballIndex];return this.mode==='planet'?planetNames[this.index]:`${edition.year} ${edition.name}`;}
-  get diagnostics(){const visible=this.orbitSprites.filter(s=>s.visible),depths=visible.map(s=>s.position.z);return {renderer:this.available?'threejs':'fallback',name:this.objectName,mode:this.mode,index:this.index,rotation:this.rotation,ready:!!this.night,loadedSurfaces:this.textures.filter(Boolean).length,modelStyle:'textured',footballYears:footballPlayOrder.map(i=>footballEditions[i].year),orbitAngle:this.orbitAngle,orbitCount:visible.length,orbitDepth:[Math.min(...depths),Math.max(...depths)],depthTest:this.orbitSprites.every(s=>s.material.depthTest),orbitMix:this.orbitMix,footballCount:footballEditions.length,bursts:this.bursts.length,stickersLoaded:this.charmMaps.length,orbitPortraits:visible.map(s=>({x:s.position.x-this.group.position.x,y:s.position.y-this.group.position.y,z:s.position.z,size:s.scale.x})),surfaceMix:this.surfaceMix,surfaceScale:this.group.scale.x,footballTransition:this.footballTransition?.diagnostics??null,pendingFootball:this.pendingFootball,footballCache:this.footballCache.size,lastFootballClickMs:this.lastFootballClickMs,shaderPrograms:this.renderer?.info.programs?.length,particlePositions:visible.slice(0,3).map(s=>({x:s.position.x,y:s.position.y,z:s.position.z,opacity:s.material.opacity}))};}
+  get diagnostics(){const visible=this.orbitSprites.filter(s=>s.visible),depths=visible.map(s=>s.position.z);return {renderer:this.available?'threejs':'fallback',name:this.objectName,mode:this.mode,index:this.index,rotation:this.rotation,ready:!!this.night,loadedSurfaces:this.textures.filter(Boolean).length,modelStyle:'textured',glass:this.glass.diagnostics,footballYears:footballPlayOrder.map(i=>footballEditions[i].year),orbitAngle:this.orbitAngle,orbitCount:visible.length,orbitDepth:[Math.min(...depths),Math.max(...depths)],depthTest:this.orbitSprites.every(s=>s.material.depthTest),orbitMix:this.orbitMix,footballCount:footballEditions.length,bursts:this.bursts.length,stickersLoaded:this.charmMaps.length,orbitPortraits:visible.map(s=>({x:s.position.x-this.group.position.x,y:s.position.y-this.group.position.y,z:s.position.z,size:s.scale.x})),surfaceMix:this.surfaceMix,surfaceScale:this.group.scale.x,footballTransition:this.footballTransition?.diagnostics??null,pendingFootball:this.pendingFootball,footballCache:this.footballCache.size,lastFootballClickMs:this.lastFootballClickMs,shaderPrograms:this.renderer?.info.programs?.length,particlePositions:visible.slice(0,3).map(s=>({x:s.position.x,y:s.position.y,z:s.position.z,opacity:s.material.opacity}))};}
 }

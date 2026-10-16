@@ -163,7 +163,7 @@ function tick(now:number){
   const radius=updateDOM();const day=document.documentElement.dataset.theme==='day';
   const morph=clamp((160-radius)/110,0,1),planetMix=planets.available?morph*morph*(3-2*morph):0;
   scene.render({x,y,radius,active:active&&!blueprint.active,time:elapsed,dt,reduced,tiltX:smoothTiltX,tiltY:smoothTiltY,day,planetMix,orbit,threeParticles:planets.available});
-  planets.render(x,y,radius,planetMix,dt,reduced,day,scene.orbitBlend,scene.particleFrames);
+  planets.render(x,y,radius,planetMix,dt,reduced,day,scene.orbitBlend,scene.particleFrames,dragging);
   if(lastObjectName!==planets.objectName)syncObject();
   requestAnimationFrame(tick);
 }

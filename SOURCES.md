@@ -123,3 +123,12 @@ This section supersedes the earlier spherical mooncake, retained profile, eight-
 - Football geometry, samples, shaders, and GPU buffers are prepared ahead of demand with a bounded three-model cache. Triangle areas and texture pixels are weakly cached, and the same 1500-point buffers are reused. No new visual football design or year-order change.
 - Opaque surfaces use a stable alpha-hash shader variant, avoiding per-click transparent/opaque recompilation. Outgoing objects are explicitly removed from visibility during the particle-only interval, then restored on cancellation. Rings cannot overwrite their transition opacity.
 - Name and word sequences use absolute frame-clock deadlines: 1000ms to first change, then every2222ms, with300ms fades included in the interval. The name alternates English/profile; words cycle Learn/Build/Share. Reduced motion reveals once without repetition.
+
+
+## React Bits Fluid Glass adaptation, 2026-10-16 (current)
+
+- Reference: https://reactbits.dev/components/fluid-glass?shape=pill&interaction=drag . The live preview and its current Code tab were inspected. The live component now uses direct WebGL SDF optics; the older GitHub/indexed MeshTransmissionMaterial demo is not the reference used here.
+- Adapted its studio reflections, Fresnel rim, RGB dispersion, and volume-preserving spring into the existing Three.js renderer. All ten photographic celestial bodies and all24 historical footballs retain their round shapes, surface artwork, slow rotations, and descending year order. No React runtime or pill-shaped planet is introduced.
+- A shared analytic spherical glass shell samples a persistent256px HDR scene target. Drag stretches the painted body and glass together; a substepped spring settles on release. Captures are limited to the immediate scene around the object. This is a sphere-specific adaptation, not the original component's arbitrary shape morphing, DOM text/media plane, or full ray-marched renderer.
+- Glass fades with the particle transition and is fully absent during the particle-only interval. Reduced motion disables elastic deformation. The rest-state transparent Wabi ring, text reveal1000ms/2222ms cadence, themes, orbit, and supplied stickers remain intact.
+- React Bits copyright and MIT + Commons Clause notice ship at `/licenses/react-bits.txt`. Source attribution: https://github.com/DavidHDev/react-bits .
