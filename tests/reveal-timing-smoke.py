@@ -17,15 +17,15 @@ data=js("""new Promise(resolve=>{
   const a=+getComputedStyle(document.querySelector('.english-name')).opacity,b=+getComputedStyle(document.querySelector('.profile-name')).opacity;
   overlap ||= a>.01&&b>.01;
   if(state!==previous){events.push({ms:now-t,state});previous=state;}
-  if(now-t<8200)requestAnimationFrame(frame);else resolve({events,overlap});
+  if(now-t<9500)requestAnimationFrame(frame);else resolve({events,overlap});
  }requestAnimationFrame(frame);
 })""")
 assert not data['overlap'],'English/profile overlap during fades'
-expected=['true/Build','false/Share','true/Learn','false/Build']
+expected=['false/Build','true/Build','true/Share','true/Learn','false/Learn','false/Build','true/Build']
 assert [e['state'] for e in data['events']]==expected,data
-for i,e in enumerate(data['events']):
-    assert abs(e['ms']-(1000+2222*i))<85,data
-print('PASS first reveal at 1000ms, four synchronized changes at 2222ms intervals',flush=True)
+for e,deadline in zip(data['events'],[1000,3000,3222,5444,6000,7666,9000]):
+    assert abs(e['ms']-deadline)<85,data
+print('PASS name changes at 3000/6000/9000ms; word retains 1000ms delay and 2222ms cadence',flush=True)
 print('PASS no overlapping English/Chinese during transitions',flush=True)
 # Closing the triggers must cancel future changes and reset the initial labels.
 js("document.querySelector('[data-reveal=name]').click();document.querySelector('[data-reveal=word]').click()")

@@ -147,7 +147,7 @@ function tick(now:number){
   }
   smoothTiltX+=(tiltX-smoothTiltX)*.08;smoothTiltY+=(tiltY-smoothTiltY)*.08;
   if(active&&!blueprint.active){
-    const namePhase=revealCycle(now-nameStarted,reduced),profile=nameUnlocked&&namePhase.step%2===1;
+    const namePhase=revealCycle(now-nameStarted,reduced,3000,3000),profile=nameUnlocked&&namePhase.step%2===1;
     const wasProfile=$('.name-line').classList.contains('profile');
     const transferToProfile=profile&&!wasProfile&&$('.english-name button').matches(':focus-visible');
     const transferToEnglish=!profile&&wasProfile&&$('#theme-toggle').matches(':focus-visible');
