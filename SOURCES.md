@@ -110,3 +110,9 @@ This section supersedes the earlier spherical mooncake, retained profile, eight-
 - Footballs use real curved puffy panels and recessed seams, with the previous original stylized historical artwork. Historical arrays stay stable; display indices sort years descending: 2026, 2022, ... 1930 Tiento, 1930 T-model, then wrap. No claim of exact official manufacturing meshes or licensed textures.
 - Football reconstruction now samples vertex colors as well as maps so continental green and gas-giant bands survive the particle morph. 1500 particles, 2.15s, queued taps and reduced motion remain unchanged. Physical planet rotation is 0.045 rad/s and football rotation 0.08 rad/s.
 - Applied installed skills: CloudAI-X Three.js fundamentals/materials, impeccable-design-polish, emilkowalski-motion; Sites source/deploy workflow and agent-browser QA. img2threejs was evaluated but its separate reconstruction pipeline was not used.
+
+
+## Planet-only restoration, 2026-10-16 (current)
+
+- Restored all ten photographic planet surfaces, original Earth cloud/night layers, atmosphere, rings and lighting from source revision 4d3aa00adc3fe0f76a2968f357fc492c75c6b0ae. The toy-planet factory is no longer imported or loaded.
+- Kept the current football meshes, materials, studio environment, rotation speed, 2026-to-1930 order and particle reconstruction. Football source and transition source are unchanged.
