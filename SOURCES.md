@@ -116,3 +116,10 @@ This section supersedes the earlier spherical mooncake, retained profile, eight-
 
 - Restored all ten photographic planet surfaces, original Earth cloud/night layers, atmosphere, rings and lighting from source revision 4d3aa00adc3fe0f76a2968f357fc492c75c6b0ae. The toy-planet factory is no longer imported or loaded.
 - Kept the current football meshes, materials, studio environment, rotation speed, 2026-to-1930 order and particle reconstruction. Football source and transition source are unchanged.
+
+
+## Football transition and reveal cadence fixes, 2026-10-16 (current)
+
+- Football geometry, samples, shaders, and GPU buffers are prepared ahead of demand with a bounded three-model cache. Triangle areas and texture pixels are weakly cached, and the same 1500-point buffers are reused. No new visual football design or year-order change.
+- Opaque surfaces use a stable alpha-hash shader variant, avoiding per-click transparent/opaque recompilation. Outgoing objects are explicitly removed from visibility during the particle-only interval, then restored on cancellation. Rings cannot overwrite their transition opacity.
+- Name and word sequences use absolute frame-clock deadlines: 1000ms to first change, then every2222ms, with300ms fades included in the interval. The name alternates English/profile; words cycle Learn/Build/Share. Reduced motion reveals once without repetition.

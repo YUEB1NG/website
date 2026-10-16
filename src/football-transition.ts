@@ -1,77 +1,74 @@
 import * as THREE from 'three';
 
-type Face={a:THREE.Vector3;b:THREE.Vector3;c:THREE.Vector3;uv:THREE.Vector2[];colors?:THREE.Color[];material:THREE.Material;end:number};
 type Surface={positions:Float32Array;colors:Float32Array};
 const count=1500;
+type Triangles={areas:Float64Array;total:number};
+const triangles=new WeakMap<THREE.BufferGeometry,Triangles>();
+const texturePixels=new WeakMap<THREE.Texture,ImageData>();
+const preparedSurfaces=new WeakMap<THREE.Object3D,Surface>();
 
-/** Sample the actual visible sculpture, including its texture colours. */
+/** Cache triangle areas, not thousands of temporary vectors on every click. */
+function triangleTable(geometry:THREE.BufferGeometry){
+  const existing=triangles.get(geometry);if(existing)return existing;
+  const p=geometry.attributes.position,index=geometry.index,areas=new Float64Array((index?.count??p.count)/3);
+  let total=0;
+  for(let i=0;i<areas.length;i++){
+    const a=index?index.getX(i*3):i*3,b=index?index.getX(i*3+1):i*3+1,c=index?index.getX(i*3+2):i*3+2;
+    const ux=p.getX(b)-p.getX(a),uy=p.getY(b)-p.getY(a),uz=p.getZ(b)-p.getZ(a),vx=p.getX(c)-p.getX(a),vy=p.getY(c)-p.getY(a),vz=p.getZ(c)-p.getZ(a);
+    total+=Math.hypot(uy*vz-uz*vy,uz*vx-ux*vz,ux*vy-uy*vx)*.5;areas[i]=total;
+  }
+  const result={areas,total};triangles.set(geometry,result);return result;
+}
+function search(areas:Float64Array,value:number){let a=0,b=areas.length-1;while(a<b){const m=(a+b)>>1;if(areas[m]<value)a=m+1;else b=m;}return a;}
+
 function surface(root:THREE.Object3D,space:THREE.Matrix4):Surface {
   root.updateWorldMatrix(true,true);
-  const faces:Face[]=[];let total=0;
+  const meshes:{geometry:THREE.BufferGeometry;material:THREE.MeshPhongMaterial;matrix:THREE.Matrix4;table:Triangles;end:number}[]=[];
+  let total=0;
   root.traverseVisible(object=>{
-    if(!(object instanceof THREE.Mesh))return;
-    const geometry:THREE.BufferGeometry=object.geometry;
-    const position=geometry.attributes.position,uv=geometry.attributes.uv,index=geometry.index;
-    if(!position)return;
-    const matrix=new THREE.Matrix4().multiplyMatrices(space,object.matrixWorld);
-    for(let i=0;i<(index?.count??position.count);i+=3){
-      const group=geometry.groups.find(g=>i>=g.start&&i<g.start+g.count);
-      const material=Array.isArray(object.material)?object.material[group?.materialIndex??0]:object.material;
-      if(!material||material.transparent||material instanceof THREE.ShaderMaterial)continue;
-      const ids=[0,1,2].map(k=>index?index.getX(i+k):i+k);
-      const [a,b,c]=ids.map(n=>new THREE.Vector3().fromBufferAttribute(position,n).applyMatrix4(matrix));
-      const area=new THREE.Vector3().subVectors(b,a).cross(new THREE.Vector3().subVectors(c,a)).length()*.5;
-      if(area<1e-9)continue;total+=area;
-      const vertexColor=geometry.attributes.color;
-      faces.push({a,b,c,material,end:total,colors:vertexColor?ids.map(n=>new THREE.Color().fromBufferAttribute(vertexColor,n)):undefined,uv:ids.map(n=>uv?new THREE.Vector2(uv.getX(n),uv.getY(n)):new THREE.Vector2())});
-    }
+    if(!(object instanceof THREE.Mesh)||object.userData.transitionIgnore)return;
+    const material=object.material as THREE.MeshPhongMaterial;
+    if(Array.isArray(material)||material.transparent||material instanceof THREE.ShaderMaterial)return;
+    const table=triangleTable(object.geometry);if(!table.total)return;
+    const matrix=new THREE.Matrix4().multiplyMatrices(space,object.matrixWorld),e=matrix.elements;
+    total+=table.total*(e[0]*e[0]+e[1]*e[1]+e[2]*e[2]);
+    meshes.push({geometry:object.geometry,material,matrix,table,end:total});
   });
-  const positions=new Float32Array(count*3),colors=new Float32Array(count*3);
-  const pixels=new Map<THREE.Texture,ImageData>();
+  const positions=new Float32Array(count*3),colors=new Float32Array(count*3),point=new THREE.Vector3(),color=new THREE.Color(),uvPoint=new THREE.Vector2();
   let seed=8187;const rand=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
   for(let i=0;i<count;i++){
-    let low=0,high=faces.length-1;const pick=rand()*total;
-    while(low<high){const mid=(low+high)>>1;if(faces[mid].end<pick)low=mid+1;else high=mid;}
-    const face=faces[low];if(!face)continue;
-    const s=Math.sqrt(rand()),t=rand(),weights=[1-s,s*(1-t),s*t];
-    const point=face.a.clone().multiplyScalar(weights[0]).addScaledVector(face.b,weights[1]).addScaledVector(face.c,weights[2]);point.toArray(positions,i*3);
-    const material=face.material as THREE.MeshPhongMaterial;
-    const color=material.color?.clone()??new THREE.Color('white'),map=material.map;
-    if(face.colors&&material.vertexColors){const tint=new THREE.Color(0,0,0);face.colors.forEach((c,k)=>{tint.r+=c.r*weights[k];tint.g+=c.g*weights[k];tint.b+=c.b*weights[k];});color.multiply(tint);}
+    const pick=rand()*total,mesh=meshes.find(m=>m.end>=pick);if(!mesh)continue;
+    const {geometry,material,matrix,table}=mesh,index=geometry.index,p=geometry.attributes.position,uv=geometry.attributes.uv,vertexColor=geometry.attributes.color;
+    const face=search(table.areas,rand()*table.total)*3;
+    const ids=[0,1,2].map(k=>index?index.getX(face+k):face+k),s=Math.sqrt(rand()),t=rand(),weights=[1-s,s*(1-t),s*t];
+    point.set(0,0,0);uvPoint.set(0,0);let cr=0,cg=0,cb=0;
+    for(let k=0;k<3;k++){const n=ids[k],weight=weights[k];point.x+=p.getX(n)*weight;point.y+=p.getY(n)*weight;point.z+=p.getZ(n)*weight;if(uv){uvPoint.x+=uv.getX(n)*weight;uvPoint.y+=uv.getY(n)*weight;}if(vertexColor){cr+=vertexColor.getX(n)*weight;cg+=vertexColor.getY(n)*weight;cb+=vertexColor.getZ(n)*weight;}}
+    point.applyMatrix4(matrix).toArray(positions,i*3);color.copy(material.color??new THREE.Color('white'));
+    if(vertexColor&&material.vertexColors){color.r*=cr;color.g*=cg;color.b*=cb;}
+    const map=material.map;
     if(map?.image){
-      if(!pixels.has(map)){
-        const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const ctx=canvas.getContext('2d',{willReadFrequently:true})!;
-        ctx.drawImage(map.image as CanvasImageSource,0,0,128,128);pixels.set(map,ctx.getImageData(0,0,128,128));
-      }
-      const texUV=face.uv[0].clone().multiplyScalar(weights[0]).addScaledVector(face.uv[1],weights[1]).addScaledVector(face.uv[2],weights[2]);
-      map.transformUv(texUV);const x=Math.max(0,Math.min(127,Math.floor(texUV.x*128))),y=Math.max(0,Math.min(127,Math.floor(texUV.y*128))),data=pixels.get(map)!.data,n=(y*128+x)*4;
-      color.multiply(new THREE.Color().setRGB(data[n]/255,data[n+1]/255,data[n+2]/255,THREE.SRGBColorSpace));
+      let pixels=texturePixels.get(map);
+      if(!pixels){const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const ctx=canvas.getContext('2d',{willReadFrequently:true})!;ctx.drawImage(map.image as CanvasImageSource,0,0,128,128);pixels=ctx.getImageData(0,0,128,128);texturePixels.set(map,pixels);}
+      map.transformUv(uvPoint);const x=Math.max(0,Math.min(127,Math.floor(uvPoint.x*128))),y=Math.max(0,Math.min(127,Math.floor(uvPoint.y*128))),n=(y*128+x)*4;
+      color.multiply(new THREE.Color().setRGB(pixels.data[n]/255,pixels.data[n+1]/255,pixels.data[n+2]/255,THREE.SRGBColorSpace));
     }
     color.toArray(colors,i*3);
   }
   return {positions,colors};
 }
 
-/** One GPU point cloud moves from the outgoing surface to the incoming ball. */
-export class FootballTransition {
-  readonly points:THREE.Points<THREE.BufferGeometry,THREE.ShaderMaterial>;
-  readonly target:THREE.Group;
-  age=0;
-  readonly duration=2.15;
-  private outgoing=new Map<THREE.Material,{opacity:number;transparent:boolean;depthWrite:boolean}>();
-  private incoming=new Map<THREE.Material,{opacity:number;transparent:boolean;depthWrite:boolean}>();
-  private sources:THREE.Object3D[];
-  constructor(root:THREE.Group,target:THREE.Group){
-    this.target=target;this.sources=[...root.children];
-    root.updateWorldMatrix(true,true);
-    const from=surface(root,root.matrixWorld.clone().invert()),to=surface(target,new THREE.Matrix4());
+/** Keep the same shader variant before, during and after a dissolve. */
+export function prepareDissolve(root:THREE.Object3D){root.traverse(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])if(!m.transparent&&!(m instanceof THREE.ShaderMaterial)&&!m.alphaHash){m.alphaHash=true;m.needsUpdate=true;}});}
+export function prepareFootballSurface(target:THREE.Group){preparedSurfaces.set(target,surface(target,new THREE.Matrix4()));}
+
+export function createFootballParticles(){
     const scatter=new Float32Array(count*3),delay=new Float32Array(count);
     for(let i=0;i<count;i++){
       const a=i*2.399963229728653,y=1-2*(i+.5)/count,r=Math.sqrt(1-y*y),spread=1.7+((i*37)%101)/101*.7;
       scatter.set([Math.cos(a)*r*spread,y*1.55,Math.sin(a)*r*spread],i*3);delay[i]=(i%17)/17*.055;
     }
     const geometry=new THREE.BufferGeometry();
-    geometry.setAttribute('position',new THREE.BufferAttribute(from.positions,3));geometry.setAttribute('destination',new THREE.BufferAttribute(to.positions,3));geometry.setAttribute('scatter',new THREE.BufferAttribute(scatter,3));geometry.setAttribute('color',new THREE.BufferAttribute(from.colors,3));geometry.setAttribute('targetColor',new THREE.BufferAttribute(to.colors,3));geometry.setAttribute('delay',new THREE.BufferAttribute(delay,1));
+    geometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array(count*3),3));geometry.setAttribute('destination',new THREE.BufferAttribute(new Float32Array(count*3),3));geometry.setAttribute('scatter',new THREE.BufferAttribute(scatter,3));geometry.setAttribute('color',new THREE.BufferAttribute(new Float32Array(count*3),3));geometry.setAttribute('targetColor',new THREE.BufferAttribute(new Float32Array(count*3),3));geometry.setAttribute('delay',new THREE.BufferAttribute(delay,1));
     const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,vertexColors:true,uniforms:{progress:{value:0},pointSize:{value:3},opacity:{value:0}},
       vertexShader:`attribute vec3 destination;attribute vec3 scatter;attribute vec3 targetColor;attribute float delay;uniform float progress;uniform float pointSize;varying vec3 vTint;
         void main(){float p=clamp((progress-delay)/(1.-delay),0.,1.);float outT=clamp(p/.38,0.,1.);outT=1.-pow(1.-outT,3.);float inT=smoothstep(.40,1.,p);
@@ -82,11 +79,32 @@ export class FootballTransition {
         #include <colorspace_fragment>
       }`
     });
-    this.points=new THREE.Points(geometry,material);this.points.frustumCulled=false;this.points.renderOrder=8;
-    const remember=(object:THREE.Object3D,map:typeof this.outgoing)=>object.traverseVisible(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])if(!map.has(m)){map.set(m,{opacity:m.opacity,transparent:m.transparent,depthWrite:m.depthWrite});m.transparent=true;m.depthWrite=false;m.needsUpdate=true;}});
+    const points=new THREE.Points(geometry,material);points.frustumCulled=false;points.renderOrder=8;return points;
+}
+
+/** One GPU point cloud moves from the outgoing surface to the incoming ball. */
+export class FootballTransition {
+  readonly points:THREE.Points<THREE.BufferGeometry,THREE.ShaderMaterial>;
+  readonly target:THREE.Group;
+  age=0;
+  readonly duration=2.15;
+  private outgoing=new Map<THREE.Material,{opacity:number}>();
+  private incoming=new Map<THREE.Material,{opacity:number}>();
+  private sources:THREE.Object3D[];
+  private sourceVisibility:boolean[];
+  constructor(root:THREE.Group,target:THREE.Group,points:ReturnType<typeof createFootballParticles>){
+    this.target=target;this.sources=[...root.children];this.sourceVisibility=this.sources.map(o=>o.visible);
+    root.updateWorldMatrix(true,true);
+    const from=surface(root,root.matrixWorld.clone().invert()),to=preparedSurfaces.get(target)??surface(target,new THREE.Matrix4());
+    this.points=points;
+    for(const [name,values] of Object.entries({position:from.positions,destination:to.positions,color:from.colors,targetColor:to.colors})){
+      const attribute=this.points.geometry.getAttribute(name) as THREE.BufferAttribute;(attribute.array as Float32Array).set(values);attribute.needsUpdate=true;
+    }
+    this.points.material.uniforms.progress.value=0;this.points.material.uniforms.opacity.value=0;
+    const remember=(object:THREE.Object3D,map:typeof this.outgoing)=>object.traverseVisible(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])if(!map.has(m)){map.set(m,{opacity:m.opacity});}});
     remember(root,this.outgoing);remember(target,this.incoming);
     this.incoming.forEach((_,m)=>m.opacity=0);
-    root.add(target,this.points);
+    target.visible=false;root.add(target,this.points);
   }
   tick(dt:number,radius:number,pixelRatio:number,reduced:boolean){
     this.age=reduced?this.duration:Math.min(this.duration,this.age+dt);const t=this.age/this.duration;
@@ -94,11 +112,12 @@ export class FootballTransition {
     this.points.material.uniforms.opacity.value=THREE.MathUtils.smoothstep(t,0,.09)*(1-THREE.MathUtils.smoothstep(t,.88,1));
     const old=1-THREE.MathUtils.smoothstep(t,0,.13),next=THREE.MathUtils.smoothstep(t,.84,1);
     this.outgoing.forEach((base,m)=>{m.opacity=base.opacity*old;if(m instanceof THREE.ShaderMaterial&&m.uniforms.opacity)m.uniforms.opacity.value=m.opacity;});this.incoming.forEach((base,m)=>m.opacity=base.opacity*next);
+    this.sources.forEach((o,i)=>o.visible=this.sourceVisibility[i]&&old>0);this.target.visible=next>0;
     return t===1;
   }
   dispose(){
-    for(const cache of [this.outgoing,this.incoming])cache.forEach((base,m)=>{Object.assign(m,base);if(m instanceof THREE.ShaderMaterial&&m.uniforms.opacity)m.uniforms.opacity.value=base.opacity;m.needsUpdate=true;});
-    this.points.removeFromParent();this.points.geometry.dispose();this.points.material.dispose();this.target.removeFromParent();
+    for(const cache of [this.outgoing,this.incoming])cache.forEach((base,m)=>{Object.assign(m,base);if(m instanceof THREE.ShaderMaterial&&m.uniforms.opacity)m.uniforms.opacity.value=base.opacity;});
+    this.sources.forEach((o,i)=>o.visible=this.sourceVisibility[i]);this.points.removeFromParent();this.target.removeFromParent();this.target.visible=true;
   }
-  get diagnostics(){return {progress:this.age/this.duration,particles:count,sourceCount:this.sources.length};}
+  get diagnostics(){return {progress:this.age/this.duration,particles:count,sourceCount:this.sources.length,sourceVisible:this.sources.filter(o=>o.visible).length,targetVisible:this.target.visible};}
 }

@@ -47,10 +47,7 @@ html,body,#wabi,#wabi *{-webkit-user-select:none;user-select:none;-webkit-touch-
 #planet-scene{inset:0;left:0;top:0;width:100%;height:100%;transform:none;pointer-events:none;z-index:1}
 .object-caption{position:absolute;transform:translateX(-50%);margin:0;font:10px Geist Mono,monospace;letter-spacing:.03em;color:var(--ink);white-space:nowrap;pointer-events:none;z-index:2;transition:opacity .4s}
 #celebrate:focus-visible{clip:auto;width:auto;height:auto;bottom:10px;left:50%;transform:translateX(-50%);background:var(--page);padding:8px;z-index:12}
-/* Sequential crossfade avoids superimposing the English name and Chinese profile. */
-.english-name{transition:opacity .65s ease .55s}
-.profile-name{transition:opacity .65s ease}
-.name-line.profile .english-name{transition-delay:0s}
-.name-line.profile .profile-name{transition-delay:.55s}
+/* A shared clock fades out before each deadline and reveals the next item after it. */
+.english-name,.profile-name,.flip-word{transition:none}
 
 :root[data-theme=day] .avatar-ring{border-color:#52617180}

@@ -32,13 +32,13 @@ check('footer visible after layout settles',"+document.querySelector('#social').
 check('unclicked word stable',"document.querySelector('#flip-word').textContent==='Learn'")
 click('[data-reveal=word]');pause(1600)
 check('first word changes after one second',"document.querySelector('#flip-word').textContent==='Build'")
-check('word has fixed width, no letter transforms',"document.querySelector('#flip-word').children.length===0&&getComputedStyle(document.querySelector('#flip-word')).transitionDuration==='0.3s'")
+check('word has fixed width, no letter transforms',"document.querySelector('#flip-word').children.length===0&&getComputedStyle(document.querySelector('#flip-word')).transitionDuration==='0s'")
 click('[data-reveal=name]');wait("!document.querySelector('.profile-name').inert")
 click('#theme-toggle');check('manual night and browser chrome',"wabi.theme==='night'&&document.querySelector('meta[name=theme-color]').content==='#000000'")
 click('#profile-label');check('name is plain text and keeps Earth',"wabi.planet.name==='Earth'&&document.querySelector('#profile-label').tagName==='SPAN'")
 click('#theme-toggle')
 check('day mode still available',"wabi.theme==='day'")
-click('#football-toggle');wait('wabi.planet.footballTransition===null');check('football starts with newest 2026 ball',"wabi.planet.name==='2026 Trionda'&&wabi.planet.footballCount===24")
+click('#football-toggle');wait('wabi.planet.footballTransition===null&&!wabi.planet.pendingFootball');check('football starts with newest 2026 ball',"wabi.planet.name==='2026 Trionda'&&wabi.planet.footballCount===24")
 run('set','media','light','reduced-motion');pause(100)
 seen=[]
 for i in range(24):
