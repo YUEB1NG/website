@@ -13,7 +13,9 @@ def check(name,code):
  checks.append(name);print('PASS',name,flush=True)
 def wait(code):run('wait','--fn',code)
 def pause(ms):js(f'new Promise(r=>setTimeout(()=>r(true),{ms}))')
-def click(s):run('click',s)
+def click(s):
+ if s=='#theme-toggle':wait("!document.querySelector('.profile-name').inert&&+getComputedStyle(document.querySelector('.profile-name')).opacity>.95")
+ run('click',s)
 def shot(name):run('screenshot',str(root/'artifacts'/f'{name}.png'))
 run('set','viewport','390','844');run('set','media','light')
 run('open','http://127.0.0.1:5173/');js("localStorage.setItem('yueb1ng-theme','day')");run('reload')

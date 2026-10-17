@@ -90,6 +90,8 @@ void main(){
 
 export class FluidGlass {
   private target=new THREE.WebGLRenderTarget(256,256,{type:THREE.HalfFloatType,depthBuffer:true,samples:4});
+  // Layer 0 captures only the body. Portraits on layer 1 are drawn once, after
+  // the glass has written its depth, so rear faces are hidden and front faces stay crisp.
   private camera=new THREE.OrthographicCamera(-1.65,1.65,1.65,-1.65,.1,30);
   private uniforms={
     uContent:{value:this.target.texture},uCenter:{value:new THREE.Vector2()},

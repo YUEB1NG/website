@@ -4,7 +4,7 @@ import type { ParticleFrame } from './scene';
 import { createFootball, footballEditions, footballPlayOrder } from './football';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { loadStickers } from './stickers';
-import { portraitOrbit } from './portrait-orbit';
+import { portraitOrbit, PORTRAIT_LAYER } from './portrait-orbit';
 import { FootballTransition, createFootballParticles, prepareDissolve, prepareFootballSurface } from './football-transition';
 import { FluidGlass } from './fluid-glass';
 
@@ -68,6 +68,7 @@ export class Planets {
   constructor(){
     this.canvas.id='planet-scene';this.canvas.setAttribute('aria-hidden','true');
     document.querySelector('#scene')!.after(this.canvas);
+    this.camera.layers.enable(PORTRAIT_LAYER);this.raycaster.layers.enable(PORTRAIT_LAYER);
     this.camera.position.z=10;this.light.position.set(-3.2,2.1,4.5);
     const rim=new THREE.DirectionalLight(0xb8d7ff,.8);rim.position.set(3,1,-2);
     this.group.rotation.z=.12;this.group.add(this.body,this.rings);
@@ -94,7 +95,7 @@ export class Planets {
       ...maps.map(async(name,index)=>{this.textures[index]=await load(`/planets/${name}.jpg`);}),
       load('/planets/earth_nightmap.jpg').then(t=>this.night=t),load('/planets/earth-normal.jpg',false).then(t=>this.normal=t),load('/planets/earth-specular.jpg',false).then(t=>this.specular=t),
       load('/planets/earth_clouds.jpg',false).then(t=>{this.clouds.material.alphaMap=t;this.clouds.material.needsUpdate=true;}),load('/planets/saturn-ring.png').then(t=>this.ringMap=t),
-      ...bubbleImages.slice(0,20).map(async(path,i)=>{const texture=await load(path);this.naturalMaps[i]=texture;const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:true,depthWrite:false,alphaTest:.04,toneMapped:false}));sprite.userData.particle=i;sprite.visible=false;this.scene.add(sprite);this.orbitSprites[i]=sprite;}),
+      ...bubbleImages.slice(0,20).map(async(path,i)=>{const texture=await load(path);this.naturalMaps[i]=texture;const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:true,depthWrite:false,alphaTest:.04,toneMapped:false}));sprite.layers.set(PORTRAIT_LAYER);sprite.renderOrder=2;sprite.userData.particle=i;sprite.visible=false;this.scene.add(sprite);this.orbitSprites[i]=sprite;}),
       loadStickers().then(textures=>{this.charmMaps=textures;})
     ]).then(async()=>{
       this.select(this.index);
@@ -155,7 +156,7 @@ export class Planets {
           // Warm their linear-color sprite shader and upload every portrait texture.
           this.orbitSprites.forEach(sprite=>{const copy=sprite.clone();copy.visible=true;warmScene.add(copy);});
         }
-        const camera=new THREE.OrthographicCamera(-2.6,2.6,2.6,-2.6,.1,30);camera.position.z=10;
+        const camera=new THREE.OrthographicCamera(-2.6,2.6,2.6,-2.6,.1,30);camera.position.z=10;camera.layers.enable(PORTRAIT_LAYER);
         const renderer=this.renderer,previous=renderer.getRenderTarget();
         // Compile both the screen and the half-float glass capture variants.
         renderer.setRenderTarget(null);
@@ -206,7 +207,7 @@ export class Planets {
   }
   hitParticle(x:number,y:number){
     if(!this.available)return null;const rect=this.canvas.getBoundingClientRect();this.raycaster.setFromCamera(new THREE.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),this.camera);
-    const objects:THREE.Object3D[]=[...this.orbitSprites.filter(s=>s.visible),...this.group.children.filter(s=>s.visible)];const hit=this.raycaster.intersectObjects(objects,true).find(h=>h.object.visible);
+    const objects:THREE.Object3D[]=[...this.orbitSprites.filter(s=>s.visible),...this.group.children.filter(s=>s.visible),...(this.glass.mesh.visible?[this.glass.mesh]:[])];const hit=this.raycaster.intersectObjects(objects,true).find(h=>h.object.visible);
     return hit?.object instanceof THREE.Sprite&&typeof hit.object.userData.particle==='number'?hit.object.userData.particle as number:null;
   }
   celebrate(index:number,reduced:boolean){
@@ -216,7 +217,7 @@ export class Planets {
     for(let i=0;i<count;i++){
       const map=this.charmMaps[this.stickerCursor++%this.charmMaps.length];
       const material=new THREE.SpriteMaterial({map,transparent:true,depthTest:false,depthWrite:false,toneMapped:false,rotation:(i-2)*.08});
-      const sprite=new THREE.Sprite(material);sprite.position.copy(origin.position);sprite.position.z=3;
+      const sprite=new THREE.Sprite(material);sprite.layers.set(PORTRAIT_LAYER);sprite.renderOrder=3;sprite.position.copy(origin.position);sprite.position.z=3;
       const aspect=map.userData.aspect as number,size=i===0?.84:.65;
       sprite.scale.set(size*Math.min(1,aspect),size/Math.max(1,aspect),1);
       this.scene.add(sprite);const a=-Math.PI*.8+i/(count-1||1)*Math.PI*.6;

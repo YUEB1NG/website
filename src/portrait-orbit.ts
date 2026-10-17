@@ -1,3 +1,5 @@
+// Portraits remain outside the planet's optical capture, with real scene depth.
+export const PORTRAIT_LAYER=1;
 const tau=Math.PI*2;
 const radius=2.15,tilt=1.23,steps=512;
 const rise=Math.cos(tilt),depth=Math.sin(tilt);
