@@ -21,6 +21,11 @@ check('resting transparent ring has no solid glass overlay',js('wabi.planet.glas
 run('click','#start');wait('wabi.position.radius<50.1')
 check('Earth uses the shared optical glass',js("wabi.planet.name==='Earth'&&wabi.planet.glass.style==='react-bits-fluid-glass'&&wabi.planet.glass.presence===1"))
 shot('fluid-earth-day-final')
+light_a=js('wabi.planet.glass');pause(2200);light_b=js('wabi.planet.glass')
+key_delta=sum((a-b)**2 for a,b in zip(light_a['keyLight'],light_b['keyLight']))**.5
+fill_delta=sum((a-b)**2 for a,b in zip(light_a['fillLight'],light_b['fillLight']))**.5
+check('both highlights move at distinct rates',key_delta>.1 and fill_delta>.08 and abs(key_delta-fill_delta)>.015)
+check('dispersion is restrained',light_b['dispersion']==.15)
 frames=js("""new Promise(resolve=>{
  const samples=[];let last=performance.now();document.querySelector('#football-toggle').click();
  function frame(now){samples.push({dt:now-last,glass:wabi.planet.glass.presence,progress:wabi.planet.footballTransition?.progress??null,source:wabi.planet.footballTransition?.sourceVisible??0});last=now;
@@ -38,7 +43,7 @@ for dx,dy in [(20,10),(60,20),(100,40),(70,45),(-50,35),(-100,15),(-70,0)]:
  run('mouse','move',str(cx+dx),str(cy+dy))
 shot('fluid-drag-held');run('mouse','up');pause(2200)
 drag=js('window.__glassRecording=false;window.__glassSamples')
-check('drag stretches the whole object with a bounded spring',max(drag)>1.01 and max(drag)<1.3 and min(drag)>.85)
+check('drag uses the quieter spring (under 13 percent stretch)',max(drag)>1.01 and max(drag)<1.13 and min(drag)>.95)
 check('release settles back into a sphere',js("Math.abs(wabi.planet.glass.stretch-1)<.001&&wabi.state==='revealed'"))
 run('click','[data-reveal=name]');wait("!document.querySelector('.profile-name').inert")
 run('click','#theme-toggle');run('press','o');wait('wabi.planet.orbitMix>.995')
@@ -46,6 +51,8 @@ check('night glass keeps all orbit portraits and proper depth',js("wabi.theme===
 shot('fluid-football-night-orbit')
 run('set','media','light','reduced-motion')
 check('reduced motion removes elastic deformation',js('wabi.planet.glass.stretch===1'))
+frozen=js('wabi.planet.glass');pause(250)
+check('reduced motion also freezes both highlights',js('wabi.planet.glass')['keyLight']==frozen['keyLight'] and js('wabi.planet.glass')['fillLight']==frozen['fillLight'])
 balls=[]
 for i in range(24):
  balls.append(js('({name:wabi.planet.name,presence:wabi.planet.glass.presence})'))

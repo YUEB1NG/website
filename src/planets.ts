@@ -60,6 +60,8 @@ export class Planets {
   private stickerCursor=0;
   private orbitMix=0;
   private raycaster=new THREE.Raycaster();
+  private orbitalPosition=new THREE.Vector3();
+  private naturalPosition=new THREE.Vector3();
   readonly canvas=document.createElement('canvas');
   readonly ready:Promise<unknown>;
 
@@ -201,7 +203,7 @@ export class Planets {
     if(!reduced){this.rotation+=dt*.045;if(!this.footballTransition)this.body.rotation.y+=dt*.045;this.clouds.rotation.y=this.body.rotation.y+this.rotation*.08;this.rings.rotation.y+=dt*.008;this.orbitAngle+=dt*.11;const rotating=this.keepsake?.userData.rotating??this.keepsake;if(rotating&&!this.footballTransition)rotating.rotation.y+=dt*.08;}
     if(!this.footballTransition)this.rings.children.forEach(c=>{(c as THREE.Mesh<THREE.RingGeometry,THREE.MeshPhongMaterial>).material.opacity=(this.index===5?.85:.22)*(1-smooth(Math.min(1,orbitMix*2)));});
     const count=this.orbitSprites.length,blend=smooth(orbitMix);
-    this.orbitSprites.forEach((sprite,i)=>{const p=particles[i],slot=portraitOrbit(i/count*Math.PI*2+this.orbitAngle);const orbital=new THREE.Vector3(slot.x,slot.y,slot.z).add(this.group.position);const natural=new THREE.Vector3(((p?.x??x)-w/2)/radius,(h/2-(p?.y??y))/radius,-2);
+    this.orbitSprites.forEach((sprite,i)=>{const p=particles[i],slot=portraitOrbit(i/count*Math.PI*2+this.orbitAngle);const orbital=this.orbitalPosition.set(slot.x,slot.y,slot.z).add(this.group.position);const natural=this.naturalPosition.set(((p?.x??x)-w/2)/radius,(h/2-(p?.y??y))/radius,-2);
       // One persistent sprite on one continuous path, without fading to a duplicate.
       sprite.position.copy(natural.lerp(orbital,blend));sprite.visible=i<count&&mix>.5&&((!!p?.visible&&!reduced)||orbitMix>.005);sprite.material.opacity=1;sprite.userData.pop=Math.max(0,(sprite.userData.pop??0)-dt*1.8);const pop=1+Math.sin((sprite.userData.pop??0)*Math.PI)*.3;const size=THREE.MathUtils.lerp((p?.visible?p.size:0)/radius,slot.size,blend);sprite.scale.setScalar(Math.max(.001,size)*pop);
     });
@@ -214,7 +216,7 @@ export class Planets {
     // no shell remains during the particle-only part of a football change.
     const glassPresence=progress===undefined?1:progress<.13?1-smooth(progress/.13):progress>.84?smooth((progress-.84)/.16):0;
     this.glass.update(this.group,x,y,radius,dt,reduced,dragging,day,mix>.001?glassPresence:0);
-    this.scene.updateMatrixWorld();this.glass.render(this.renderer!,this.scene,this.camera);
+    this.scene.updateMatrixWorld();if(mix>.001)this.glass.render(this.renderer!,this.scene,this.camera);
   }
   get available(){return !!this.renderer&&!this.lost;}
   get objectName(){const edition=footballEditions[this.footballIndex];return this.mode==='planet'?planetNames[this.index]:`${edition.year} ${edition.name}`;}

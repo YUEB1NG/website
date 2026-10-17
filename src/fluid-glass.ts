@@ -24,6 +24,8 @@ uniform float uTime;
 uniform float uDay;
 uniform float uPresence;
 uniform vec3 uBackground;
+uniform vec3 uKeyLight;
+uniform vec3 uFillLight;
 varying vec3 vNormal;
 varying vec3 vWorld;
 
@@ -42,19 +44,18 @@ vec3 content(vec2 local){
   return c.rgb+backdrop(local)*(1.-c.a);
 }
 
-// React Bits' two soft studio lights, with the original Fresnel/rim response.
+// Two quiet, rounded reflections travel on independent tracks. Their clock
+// does not use the planet/football rotation or the drag direction.
 vec3 studio(vec3 d){
-  vec2 a=vec2(atan(d.x,d.z),d.y);
-  float key=(1.-smoothstep(.22,.42,abs(a.x+.62)))*(1.-smoothstep(.12,.3,abs(a.y-.5)));
-  float strip=(1.-smoothstep(.05,.12,abs(a.x-.95)))*(1.-smoothstep(.35,.8,abs(a.y-.05)));
-  float dome=smoothstep(0.,1.,d.z)*.04;
-  return vec3(18.)*key+vec3(8.)*strip+vec3(dome);
+  float key=pow(max(dot(d,uKeyLight),0.),34.);
+  float fill=pow(max(dot(d,uFillLight),0.),22.);
+  return vec3(5.5)*key+vec3(.88,.94,1.)*2.4*fill;
 }
 
 void main(){
   vec3 n=normalize(vNormal),rd=vec3(0.,0.,-1.);
   float cosi=clamp(n.z,0.,1.);
-  float ior=1.45;
+  float ior=1.32;
   vec3 inside=refract(rd,n,1./ior);
   // Exit the sphere analytically, then refract back into air. Limit the landing
   // distance to keep historical panel artwork legible at a 100px diameter.
@@ -64,12 +65,12 @@ void main(){
   vec2 local=vWorld.xy-uCenter;
   vec2 bend=(inside.xy+exitDir.xy*.22)*.32;
   vec2 landed=local+bend;
-  float dispersion=.35*.06;
+  float dispersion=.15*.06;
   vec2 split=n.xy*dispersion*pow(1.-cosi,1.4);
   vec3 transmitted=vec3(content(landed-split).r,content(landed).g,content(landed+split).b);
   // The existing painted surface lives inside the glass. A little transmission
   // opens up the body without losing continents or the different ball designs.
-  float clearAmount=.035+.30*pow(1.-cosi,2.);
+  float clearAmount=.018+.14*pow(1.-cosi,2.);
   transmitted=mix(transmitted,backdrop(local),clearAmount);
   float surfaceCoverage=texture2D(uContent,local/(uExtent*2.)+.5).a;
   transmitted=mix(backdrop(local),transmitted,.12+.88*surfaceCoverage);
@@ -77,9 +78,9 @@ void main(){
   float fresnel=f0+(1.-f0)*pow(1.-cosi,5.);
   vec3 reflected=studio(reflect(rd,n));
   float internalBand=(1.-smoothstep(.08,.25,cosi))*smoothstep(.015,.065,cosi);
-  vec3 glass=transmitted*(1.-fresnel*.65)*(1.-internalBand*.65)+reflected*(fresnel+.018);
+  vec3 glass=transmitted*(1.-fresnel*.65)*(1.-internalBand*.35)+reflected*(fresnel+.012);
   vec2 facing=normalize(vec2(-.42,.55));
-  float rim=pow(1.-cosi,3.)*(.25+.75*abs(dot(normalize(n.xy+1e-5),facing)))*.55;
+  float rim=pow(1.-cosi,3.)*(.25+.75*abs(dot(normalize(n.xy+1e-5),facing)))*.24;
   rim*=smoothstep(0.,.08,cosi);
   glass=vec3(rim)+glass*(1.-rim);
   gl_FragColor=vec4(glass,uPresence);
@@ -94,9 +95,10 @@ export class FluidGlass {
     uContent:{value:this.target.texture},uCenter:{value:new THREE.Vector2()},
     uScreenCenter:{value:new THREE.Vector2()},
     uExtent:{value:1.65},uRadius:{value:50},uTime:{value:0},uDay:{value:1},
+    uKeyLight:{value:new THREE.Vector3()},uFillLight:{value:new THREE.Vector3()},
     uPresence:{value:1},uBackground:{value:new THREE.Color('#f4f6fa')}
   };
-  readonly mesh=new THREE.Mesh(new THREE.SphereGeometry(1.045,72,48),new THREE.ShaderMaterial({
+  readonly mesh=new THREE.Mesh(new THREE.SphereGeometry(1.025,64,40),new THREE.ShaderMaterial({
     uniforms:this.uniforms,vertexShader:vertex,fragmentShader:fragment,
     transparent:true,depthWrite:true,depthTest:true
   }));
@@ -104,6 +106,7 @@ export class FluidGlass {
   private velocity=0;
   private direction=new THREE.Vector2(1,0);
   private previous=new THREE.Vector2();
+  private dragDirection=new THREE.Vector2();
   private initialized=false;
   private deform=new THREE.Matrix4();
   private rotate=new THREE.Matrix4();
@@ -123,13 +126,13 @@ export class FluidGlass {
     const dx=x-this.previous.x,dy=-(y-this.previous.y);
     const speed=Math.hypot(dx,dy)/Math.max(dt,1/240);
     this.previous.set(x,y);this.clock+=reduced?0:dt;
-    if(dragging&&speed>15)this.direction.lerp(new THREE.Vector2(dx,dy).normalize(),1-Math.exp(-dt*12)).normalize();
-    const goal=1+(dragging&&!reduced?Math.min(speed/1800,.30)*.5:0);
+    if(dragging&&speed>15)this.direction.lerp(this.dragDirection.set(dx,dy).normalize(),1-Math.exp(-dt*12)).normalize();
+    const goal=1+(dragging&&!reduced?Math.min(speed/1800,.28)*.42:0);
     // Same volume-preserving damped spring as the reference, with a calmer
     // damping ratio for small planets. Substeps make release frame-rate safe.
     const steps=Math.max(1,Math.ceil(dt/(1/120))),h=dt/steps;
     for(let i=0;i<steps;i++){
-      this.velocity+=(13*13*(goal-this.stretch)-2*.46*13*this.velocity)*h;
+      this.velocity+=(13*13*(goal-this.stretch)-2*.54*13*this.velocity)*h;
       this.stretch+=this.velocity*h;
     }
     if(reduced){this.stretch=1;this.velocity=0;}
@@ -143,6 +146,11 @@ export class FluidGlass {
     this.uniforms.uPresence.value=presence;this.uniforms.uCenter.value.set(group.position.x,group.position.y);
     this.uniforms.uScreenCenter.value.set(x,y);this.uniforms.uRadius.value=radius;
     this.uniforms.uTime.value=this.clock;this.uniforms.uDay.value=day?1:0;
+    // Opposite azimuths, unequal speeds and elevations: about 57s and 76s per orbit.
+    const keyAngle=-.62-this.clock*.11,fillAngle=.95+this.clock*.083;
+    const keyHeight=.42+Math.sin(this.clock*.071)*.20,fillHeight=.08+Math.sin(this.clock*.057+1.3)*.28;
+    this.uniforms.uKeyLight.value.set(Math.sin(keyAngle),keyHeight,Math.cos(keyAngle)).normalize();
+    this.uniforms.uFillLight.value.set(Math.sin(fillAngle),fillHeight,Math.cos(fillAngle)).normalize();
     this.camera.position.set(group.position.x,group.position.y,10);this.camera.updateMatrixWorld();
     // Keep a fixed, small capture allocation. No resize/allocation during drag.
   }
@@ -157,5 +165,5 @@ export class FluidGlass {
     renderer.render(scene,camera);
   }
 
-  get diagnostics(){return {style:'react-bits-fluid-glass',presence:this.presence,stretch:this.stretch,captureSize:this.captureSize,refraction:1.45,dispersion:.35};}
+  get diagnostics(){return {style:'react-bits-fluid-glass',presence:this.presence,stretch:this.stretch,captureSize:this.captureSize,refraction:1.32,dispersion:.15,lightClock:this.clock,keyLight:this.uniforms.uKeyLight.value.toArray(),fillLight:this.uniforms.uFillLight.value.toArray()};}
 }

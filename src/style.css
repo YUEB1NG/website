@@ -51,3 +51,8 @@ html,body,#wabi,#wabi *{-webkit-user-select:none;user-select:none;-webkit-touch-
 .english-name,.profile-name,.flip-word{transition:none}
 
 :root[data-theme=day] .avatar-ring{border-color:#52617180}
+
+/* Small feedback uses individual scale so existing layout transforms stay intact. */
+.back,.reveal-trigger,.quiet-trigger,.avatar-ring,.social{transition:scale .22s cubic-bezier(.2,.8,.2,1),color .25s,opacity .25s}
+@media(hover:hover){.back:hover,.reveal-trigger:hover,.quiet-trigger:hover,.avatar-ring:hover,.social:hover{scale:1.025}}
+.back:active,.reveal-trigger:active,.quiet-trigger:active,.avatar-ring:active,.social:active{scale:.975}

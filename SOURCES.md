@@ -132,3 +132,11 @@ This section supersedes the earlier spherical mooncake, retained profile, eight-
 - A shared analytic spherical glass shell samples a persistent256px HDR scene target. Drag stretches the painted body and glass together; a substepped spring settles on release. Captures are limited to the immediate scene around the object. This is a sphere-specific adaptation, not the original component's arbitrary shape morphing, DOM text/media plane, or full ray-marched renderer.
 - Glass fades with the particle transition and is fully absent during the particle-only interval. Reduced motion disables elastic deformation. The rest-state transparent Wabi ring, text reveal1000ms/2222ms cadence, themes, orbit, and supplied stickers remain intact.
 - React Bits copyright and MIT + Commons Clause notice ship at `/licenses/react-bits.txt`. Source attribution: https://github.com/DavidHDev/react-bits .
+
+
+## Clearer, independently animated glass and runtime polish, 2026-10-17
+
+- Continued the inspected open-source React Bits / Three.js implementation. Replaced fixed rectangular studio lights with two lower-intensity, rounded lobes, moving in opposite azimuths at0.11 and0.083rad/s, with distinct elevation oscillations. This motion uses its own clock and freezes with reduced motion. No extra model spin or uncontrolled idle deformation.
+- Thinner shell (1.025 radius), IOR1.32, dispersion0.15, softer rim and less background mixing. Drag target stretch reduced from15% to11.76%, with more damping; the whole painted body still follows the same volume-preserving deformation.
+- Removed redundant full-screen canvas-to-texture uploads while Three.js draws portraits; the WebGL fallback still uploads its own layer and clears it on recovery. Reused temporary orbit vectors and skipped hidden Three.js draws in the resting state. Existing particle transitions and typography are preserved; name cadence is3000ms including the first reveal.
+- Project relocated and hash-verified at D:/Projects/yueb1ng-wabi. Standalone Node.js and a reusable Python launcher allow preview outside the desktop application's process job. Public hosting serves standard static output independently. Source licensing and existing public audience unchanged.

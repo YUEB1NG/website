@@ -21,6 +21,8 @@ export class Scene {
   private framebuffer?: WebGLFramebuffer;
   private source?: WebGLTexture;
   private layer?: WebGLTexture;
+  private uploadedParticleLayer=false;
+  private emptyPixel=new Uint8Array(4);
   private paint = document.createElement('canvas');
   private ctx = this.paint.getContext('2d')!;
   private width=1; private height=1; private ratio=1;
@@ -67,6 +69,7 @@ export class Scene {
     this.programs=[this.program(stars),this.program(prism)];
     this.buffer=gl.createBuffer()!;gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
     this.framebuffer=gl.createFramebuffer()!;this.source=this.texture();this.layer=this.texture();
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,this.emptyPixel);this.uploadedParticleLayer=false;
   }
   private uniform(program:WebGLProgram,name:string){const cache=this.uniforms.get(program)!;if(!cache.has(name))cache.set(name,this.gl!.getUniformLocation(program,name));return cache.get(name)!;}
   private use(program:WebGLProgram){const gl=this.gl!;gl.useProgram(program);gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer!);const loc=gl.getAttribLocation(program,'a_position');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);}
@@ -91,7 +94,7 @@ export class Scene {
     const gl=this.gl!;if(this.lost)return;
     if(frame.active&&!this.active){this.elapsed=0;this.particles.forEach(p=>this.reset(p));}
     this.active=frame.active;if(frame.active)this.elapsed+=frame.dt*1000;
-    const ctx=this.ctx;ctx.clearRect(0,0,this.paint.width,this.paint.height);ctx.save();ctx.scale(this.ratio,this.ratio);
+    const ctx=this.ctx;if(!frame.threeParticles)ctx.clearRect(0,0,this.paint.width,this.paint.height);ctx.save();ctx.scale(this.ratio,this.ratio);
     this.particleFrames.forEach(p=>p.visible=false);
     if((!frame.reduced&&this.elapsed>=1500)||frame.orbit){for(const [i,p] of this.particles.entries()){
       if(this.orbitMix<.001&&(this.elapsed<1500+p.delay||(!frame.active&&p.progress===0)))continue;
@@ -105,7 +108,8 @@ export class Scene {
       if(!frame.threeParticles&&p.image.complete&&p.image.naturalWidth)ctx.drawImage(p.image,x,y,size,size);
     }}ctx.restore();
     const w=this.canvas.width,h=this.canvas.height,[base,prism]=this.programs;
-    this.use(base);gl.bindFramebuffer(gl.FRAMEBUFFER,this.framebuffer!);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.layer!);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,this.paint);
+    this.use(base);gl.bindFramebuffer(gl.FRAMEBUFFER,this.framebuffer!);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.layer!);if(!frame.threeParticles){gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,this.paint);this.uploadedParticleLayer=true;}
+    else if(this.uploadedParticleLayer){gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,this.emptyPixel);this.uploadedParticleLayer=false;}
     gl.uniform1f(this.uniform(base,'day'),frame.day?1:0);gl.uniform1i(this.uniform(base,'layer'),0);gl.uniform2f(this.uniform(base,'resolution'),w,h);gl.uniform1f(this.uniform(base,'pixelRatio'),this.ratio);gl.uniform1f(this.uniform(base,'time'),frame.reduced?0:frame.time);gl.drawArrays(gl.TRIANGLES,0,6);
     this.use(prism);gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.bindTexture(gl.TEXTURE_2D,this.source!);gl.uniform1i(this.uniform(prism,'u_source'),0);
     const one=(name:string,value:number)=>gl.uniform1f(this.uniform(prism,name),value),three=(name:string,a:number,b:number,c:number)=>gl.uniform3f(this.uniform(prism,name),a,b,c);
