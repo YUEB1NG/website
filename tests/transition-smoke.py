@@ -24,7 +24,18 @@ check('entry blend increases continuously',all(b['mix']>=a['mix'] for a,b in zip
 check('first surface is Earth',js("wabi.planet.name==='Earth'"))
 click('#everything')
 check('everything has no button or scene effect',js("document.querySelector('#everything').tagName==='SPAN'&&!document.querySelector('.flyover')&&wabi.planet.name==='Earth'"))
-timing=js("(()=>{const t=performance.now();document.querySelector('#football-toggle').click();return {ms:performance.now()-t,transition:wabi.planet.footballTransition}})()")
+timing=js("""new Promise(resolve=>{
+ const programs=wabi.planet.shaderPrograms,t=performance.now();
+ document.querySelector('#football-toggle').click();
+ const ms=performance.now()-t,transition=wabi.planet.footballTransition,frames=[];
+ let previous=t;
+ function frame(now){frames.push({dt:now-previous,programs:wabi.planet.shaderPrograms});previous=now;
+  if(now-t<550)requestAnimationFrame(frame);else resolve({ms,transition,programs,frames});
+ }requestAnimationFrame(frame);
+})""")
+check('first football click reuses precomputed surfaces',timing['ms']<16)
+check('first morph uses only warmed shader programs',all(f['programs']==timing['programs'] for f in timing['frames']))
+check('first morph has no frame stall over 80ms',max(f['dt'] for f in timing['frames'])<80)
 check('like starts a surface particle transition',timing['transition']['particles']==1500)
 wait('wabi.planet.footballTransition?.progress>.25')
 run('screenshot',str(root/'artifacts/transition-exploded.png'))
@@ -49,5 +60,5 @@ check('enabling reduced motion mid-transition finishes cleanly',js("wabi.planet.
 check('no browser errors',not run('errors'))
 log=run('console')
 check('no shader compilation errors','[error]' not in log and 'VALIDATE_STATUS false' not in log)
-(root/'artifacts/transition-checks.json').write_text(json.dumps({'passed':checks,'entryFrames':frames,'clickPreparationMs':timing['ms']},indent=2),encoding='utf-8')
+(root/'artifacts/transition-checks.json').write_text(json.dumps({'passed':checks,'entryFrames':frames,'clickPreparationMs':timing['ms'],'coldStart':timing},indent=2),encoding='utf-8')
 print(f'PASS {len(checks)} checks; click preparation {timing["ms"]:.1f}ms')

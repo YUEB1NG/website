@@ -101,6 +101,12 @@ export class Planets {
       // Upload the surfaces and compile before the opening finishes, not on the first tap.
       for(const t of this.textures)if(t)this.renderer?.initTexture(t);
       prepareDissolve(this.group);
+      const originalMap=this.material.map;
+      for(const texture of this.textures)if(texture){
+        this.material.map=texture;prepareFootballSurface(this.body,texture);
+        await new Promise<void>(resolve=>setTimeout(resolve,0));
+      }
+      this.material.map=originalMap;
       if(this.renderer)await this.renderer.compileAsync(this.scene,this.camera);
       await this.warmFootball(footballPlayOrder[0]);
       await this.warmFootball(footballPlayOrder[1]);
@@ -142,13 +148,36 @@ export class Planets {
       if(this.renderer){
         const warmScene=new THREE.Scene();warmScene.environment=this.scene.environment;warmScene.environmentIntensity=this.scene.environmentIntensity;
         this.scene.children.filter(o=>o instanceof THREE.Light).forEach(o=>warmScene.add(o.clone()));warmScene.add(target);
-        const warmParticles=!this.particlesWarmed;if(warmParticles)warmScene.add(this.footballPoints);
+        const warmParticles=!this.particlesWarmed;
+        if(warmParticles){
+          warmScene.add(this.footballPoints);
+          // Avatars enter the glass capture during the first morph too.
+          // Warm their linear-color sprite shader and upload every portrait texture.
+          this.orbitSprites.forEach(sprite=>{const copy=sprite.clone();copy.visible=true;warmScene.add(copy);});
+        }
         const camera=new THREE.OrthographicCamera(-2.6,2.6,2.6,-2.6,.1,30);camera.position.z=10;
-        await this.renderer.compileAsync(warmScene,camera);
+        const renderer=this.renderer,previous=renderer.getRenderTarget();
+        // Compile both the screen and the half-float glass capture variants.
+        renderer.setRenderTarget(null);
+        const screenReady=renderer.compileAsync(warmScene,camera);
+        renderer.setRenderTarget(previous);await screenReady;
+        const buffer=new THREE.WebGLRenderTarget(16,16,{type:THREE.HalfFloatType,samples:4});
+        renderer.setRenderTarget(buffer);
+        const captureReady=renderer.compileAsync(warmScene,camera);
+        renderer.setRenderTarget(previous);await captureReady;
         await breathe();
-        // Upload geometry and texture buffers offscreen, before this object is requested.
-        const buffer=new THREE.WebGLRenderTarget(16,16),previous=this.renderer.getRenderTarget();
-        this.renderer.setRenderTarget(buffer);this.renderer.render(warmScene,camera);this.renderer.setRenderTarget(previous);buffer.dispose();
+        renderer.setRenderTarget(buffer);renderer.render(warmScene,camera);
+        // Issue actual screen draw calls as well, without altering any screen pixels.
+        // This uploads buffers / VAOs before the first user-triggered particle frame.
+        const states=new Map<THREE.Material,{colorWrite:boolean;depthWrite:boolean}>();
+        warmScene.traverse(o=>{if(o instanceof THREE.Mesh||o instanceof THREE.Points){
+          for(const m of Array.isArray(o.material)?o.material:[o.material])if(!states.has(m)){
+            states.set(m,{colorWrite:m.colorWrite,depthWrite:m.depthWrite});m.colorWrite=false;m.depthWrite=false;
+          }
+        }});
+        const autoClear=renderer.autoClear;renderer.autoClear=false;
+        try{renderer.setRenderTarget(null);renderer.render(warmScene,camera);}
+        finally{states.forEach((state,m)=>Object.assign(m,state));renderer.autoClear=autoClear;renderer.setRenderTarget(previous);buffer.dispose();}
         target.removeFromParent();if(warmParticles){this.footballPoints.removeFromParent();this.particlesWarmed=true;}
       }
       this.footballCache.set(index,target);this.footballWarming.delete(index);
@@ -169,7 +198,7 @@ export class Planets {
     const begin=(target:THREE.Group)=>{
       if(request!==this.footballRequest)return;
       this.pendingFootball=false;this.footballCache.delete(index);this.targetFootballIndex=index;
-      this.footballTransition=new FootballTransition(this.group,target,this.footballPoints);
+      this.footballTransition=new FootballTransition(this.group,target,this.footballPoints,this.keepsake??this.body);
     };
     const target=this.footballCache.get(index);
     if(target)begin(target);else{this.pendingFootball=true;void this.warmFootball(index).then(begin);}

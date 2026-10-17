@@ -5,7 +5,7 @@ const count=1500;
 type Triangles={areas:Float64Array;total:number};
 const triangles=new WeakMap<THREE.BufferGeometry,Triangles>();
 const texturePixels=new WeakMap<THREE.Texture,ImageData>();
-const preparedSurfaces=new WeakMap<THREE.Object3D,Surface>();
+const preparedSurfaces=new WeakMap<THREE.Object3D|THREE.Texture,Surface>();
 
 /** Cache triangle areas, not thousands of temporary vectors on every click. */
 function triangleTable(geometry:THREE.BufferGeometry){
@@ -59,7 +59,23 @@ function surface(root:THREE.Object3D,space:THREE.Matrix4):Surface {
 
 /** Keep the same shader variant before, during and after a dissolve. */
 export function prepareDissolve(root:THREE.Object3D){root.traverse(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])if(!m.transparent&&!(m instanceof THREE.ShaderMaterial)&&!m.alphaHash){m.alphaHash=true;m.needsUpdate=true;}});}
-export function prepareFootballSurface(target:THREE.Group){preparedSurfaces.set(target,surface(target,new THREE.Matrix4()));}
+export function prepareFootballSurface(target:THREE.Object3D,key:THREE.Object3D|THREE.Texture=target){
+  target.updateWorldMatrix(true,true);
+  preparedSurfaces.set(key,surface(target,target.matrixWorld.clone().invert()));
+}
+/** Reuse samples in object space; rotation and drag are applied at the instant of the tap. */
+function sourceSurface(source:THREE.Object3D,root:THREE.Group):Surface{
+  const key=source instanceof THREE.Mesh?(source.material as THREE.MeshPhongMaterial).map??source:source;
+  const cached=preparedSurfaces.get(key);
+  const matrix=root.matrixWorld.clone().invert().multiply(source.matrixWorld);
+  if(!cached)return surface(source,root.matrixWorld.clone().invert());
+  return transformSurface(cached,matrix);
+}
+function transformSurface(cached:Surface,matrix:THREE.Matrix4):Surface{
+  const positions=cached.positions.slice(),point=new THREE.Vector3();
+  for(let i=0;i<count;i++)point.fromArray(positions,i*3).applyMatrix4(matrix).toArray(positions,i*3);
+  return {positions,colors:cached.colors};
+}
 
 export function createFootballParticles(){
     const scatter=new Float32Array(count*3),delay=new Float32Array(count);
@@ -92,10 +108,12 @@ export class FootballTransition {
   private incoming=new Map<THREE.Material,{opacity:number}>();
   private sources:THREE.Object3D[];
   private sourceVisibility:boolean[];
-  constructor(root:THREE.Group,target:THREE.Group,points:ReturnType<typeof createFootballParticles>){
+  constructor(root:THREE.Group,target:THREE.Group,points:ReturnType<typeof createFootballParticles>,source:THREE.Object3D){
     this.target=target;this.sources=[...root.children];this.sourceVisibility=this.sources.map(o=>o.visible);
     root.updateWorldMatrix(true,true);
-    const from=surface(root,root.matrixWorld.clone().invert()),to=preparedSurfaces.get(target)??surface(target,new THREE.Matrix4());
+    target.updateMatrix();
+    const prepared=preparedSurfaces.get(target);
+    const from=sourceSurface(source,root),to=prepared?transformSurface(prepared,target.matrix):surface(target,new THREE.Matrix4());
     this.points=points;
     for(const [name,values] of Object.entries({position:from.positions,destination:to.positions,color:from.colors,targetColor:to.colors})){
       const attribute=this.points.geometry.getAttribute(name) as THREE.BufferAttribute;(attribute.array as Float32Array).set(values);attribute.needsUpdate=true;

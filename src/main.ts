@@ -3,7 +3,7 @@ import { Scene } from './scene';
 import { Blueprint } from './blueprint';
 import { Planets, planetNames } from './planets';
 import { syncTheme, toggleTheme } from './theme';
-import { revealCycle } from './reveal-cycle';
+import { revealCycle, RandomNameCycle } from './reveal-cycle';
 
 const $=<T extends HTMLElement>(selector:string)=>document.querySelector<T>(selector)!;
 const app=$('#wabi'),start=$<HTMLButtonElement>('#start'),orb=$<HTMLButtonElement>('#orb'),greeting=$('#greeting'),swipe=$('#swipe'),social=$<HTMLAnchorElement>('#social'),status=$('#status');
@@ -18,9 +18,10 @@ function clearHold(){if(holdTimer!==undefined)clearTimeout(holdTimer);holdTimer=
 function toggleOrbit(){orbit=!orbit;orb.setAttribute('aria-pressed',String(orbit));status.textContent=orbit?'Avatars gathered into an orbit. Long press again to release.':'Avatars released.';}
 let textOffset=67.2;
 const textTarget=()=>Math.min(height*.55+textOffset,height-180);
-function resetName(){nameUnlocked=false;nameStarted=0;$('.english-name').style.opacity='1';$('.profile-name').style.opacity='0';$('.name-line').classList.remove('profile');$('.english-name').inert=false;$('.profile-name').setAttribute('aria-hidden','true');$('.profile-name').inert=true;const b=$('[data-reveal=name]');b.setAttribute('aria-expanded','false');$('#name-content').dataset.state='closed';}
+const nameCycle=new RandomNameCycle();
+function resetName(){nameUnlocked=false;$('.english-name').style.opacity='1';$('.profile-name').style.opacity='0';$('.name-line').classList.remove('profile');$('.english-name').inert=false;$('.profile-name').setAttribute('aria-hidden','true');$('.profile-name').inert=true;const b=$('[data-reveal=name]');b.setAttribute('aria-expanded','false');$('#name-content').dataset.state='closed';}
 let width=innerWidth,height=innerHeight,x=width/2,y=height,targetX=x,targetY=y,vx=0,vy=0,textY=height,textV=0,active=false,dragging=false,reduced=media.matches;
-let last=performance.now(),elapsed=0,nameStarted=0,wordStarted=0,secondary=0,downX=0,downY=0,fromY=0,moved=false,tiltX=0,tiltY=0,smoothTiltX=0,smoothTiltY=0,pointer:number|null=null;
+let last=performance.now(),elapsed=0,wordStarted=0,secondary=0,downX=0,downY=0,fromY=0,moved=false,tiltX=0,tiltY=0,smoothTiltX=0,smoothTiltY=0,pointer:number|null=null;
 let flipIndex=0,pressedOrb=false;
 const words=['Learn','Build','Share'];
 const flipWord=$('#flip-word');
@@ -40,7 +41,7 @@ function setActive(next:boolean){
   if(!next){orbit=false;orb.setAttribute('aria-pressed','false');clearHold();planets.cancelFootball();}
   $('#back').setAttribute('aria-label',next?'Back to start':'Replay opening animation');
   $('#back').setAttribute('title',next?'Back to start':'Replay opening animation');
-  if(changed){entryAge=0;socialAlpha=0;nameStarted=0;wordStarted=0;flipIndex=0;setWord(words[0]);resetName();wordUnlocked=false;resetReveals();}
+  if(changed){entryAge=0;socialAlpha=0;wordStarted=0;flipIndex=0;setWord(words[0]);resetName();wordUnlocked=false;resetReveals();}
   greeting.inert=!next;social.inert=!next;start.inert=next;
   $('#celebrate').inert=!next;
   greeting.style.pointerEvents=next?'auto':'none';social.style.pointerEvents=next?'auto':'none';
@@ -83,7 +84,7 @@ orb.addEventListener('click',e=>{if(e.detail===0&&!blueprint.active)setActive(!a
 $('#back').addEventListener('click',()=>active?setActive(false):replay());
 document.querySelectorAll<HTMLButtonElement>('[data-reveal]').forEach(button=>button.addEventListener('click',()=>{
   const open=button.getAttribute('aria-expanded')!=='true';button.setAttribute('aria-expanded',String(open));button.querySelector<HTMLElement>('.reveal-content')!.dataset.state=open?'open':'closed';
-  if(button.dataset.reveal==='name'){nameUnlocked=open;nameStarted=performance.now();if(!open)resetName();}
+  if(button.dataset.reveal==='name'){nameUnlocked=open;if(open)nameCycle.reset(performance.now());if(!open)resetName();}
   if(button.dataset.reveal==='word'){wordUnlocked=open;wordStarted=performance.now();flipIndex=0;setWord(words[0]);}
 }));
 $('#theme-toggle').addEventListener('click',()=>{toggleTheme();});
@@ -147,7 +148,7 @@ function tick(now:number){
   }
   smoothTiltX+=(tiltX-smoothTiltX)*.08;smoothTiltY+=(tiltY-smoothTiltY)*.08;
   if(active&&!blueprint.active){
-    const namePhase=revealCycle(now-nameStarted,reduced,3000,3000),profile=nameUnlocked&&namePhase.step%2===1;
+    const namePhase=nameUnlocked?nameCycle.read(now,reduced):{step:0,opacity:1},profile=nameUnlocked&&namePhase.step%2===1;
     const wasProfile=$('.name-line').classList.contains('profile');
     const transferToProfile=profile&&!wasProfile&&$('.english-name button').matches(':focus-visible');
     const transferToEnglish=!profile&&wasProfile&&$('#theme-toggle').matches(':focus-visible');
