@@ -46,4 +46,4 @@ npm run build
 
 浏览器通过开源 [Country](https://github.com/lineofflight/country) 的公开 IP-to-country 服务判断出口 IP 地区，失败时回退 [IP.SB](https://ip.sb/api/)；每个服务最多等待1.6秒，不申请设备定位权限。CN 显示用户提供的抖音短链接，其余地区或两次查询都失败时保留 X。仅在当前标签页缓存国家代码5分钟，不保存或记录 IP。VPN/代理可能改变判定地区；真实中国大陆网络可达性尚未实测。
 
-底部使用用户提供的 X／抖音 SVG，通过 currentColor 跟随日夜主题；首次判定后再沿用原来的淡入，避免先显示 X 再闪成抖音。网络恢复后重新判断，切换时文字和图标一起平滑淡出／淡入。链接及样式位于 src/regional-social.ts。
+两个地区均显示 Follow on 与 @YUEB1NG，只切换平台图标和对应链接。底部使用用户提供的 X／抖音 SVG，通过 currentColor 跟随日夜主题；首次判定后再沿用原来的淡入，避免先显示 X 再闪成抖音。网络恢复后重新判断，切换时文字和图标一起平滑淡出／淡入。链接及样式位于 src/regional-social.ts。

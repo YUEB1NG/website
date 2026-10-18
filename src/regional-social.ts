@@ -7,7 +7,7 @@ const cacheKey='yueb1ng-region-v1',ttl=5*60*1000;
 const providers=[{url:'https://api.country.is/',field:'country'},{url:'https://api.ip.sb/geoip',field:'country_code'}];
 const destinations={
   x:{href:'https://x.com/yueb1ng',label:'@YUEB1NG',aria:'Follow YUEB1NG on X',icon:xIcon},
-  douyin:{href:'https://v.douyin.com/XjA2pCkbk6M',label:'抖音',aria:'在抖音关注悦饼',icon:douyinIcon},
+  douyin:{href:'https://v.douyin.com/XjA2pCkbk6M',label:'@YUEB1NG',aria:'Follow YUEB1NG on Douyin',icon:douyinIcon},
 };
 function validCountry(value:unknown):value is string{return typeof value==='string'&&/^[A-Z]{2}$/.test(value)&&!['XX','ZZ'].includes(value);}
 function cachedCountry():string|null{

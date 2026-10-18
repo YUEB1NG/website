@@ -15,7 +15,7 @@ def reload():
 def state():return js("(()=>{const a=document.querySelector('#social'),svg=a.querySelector('svg'),path=svg.querySelector('path');return {platform:a.dataset.platform,href:a.href,text:a.textContent,fill:getComputedStyle(path).fill,color:getComputedStyle(a).color,icon:path.getAttribute('d'),target:a.target,rel:a.rel,opacity:+getComputedStyle(a).opacity}})()")
 run('set','viewport','390','844');run('set','media','light');run('open','http://127.0.0.1:5173/');wait("!!window.wabi")
 route({'country':'CN','ip':'192.0.2.1'},None);reload();cn=state()
-assert cn['platform']=='douyin' and cn['href']=='https://v.douyin.com/XjA2pCkbk6M' and '抖音' in cn['text']
+assert cn['platform']=='douyin' and cn['href']=='https://v.douyin.com/XjA2pCkbk6M' and '@YUEB1NG' in cn['text']
 assert cn['fill']==cn['color']=='rgb(39, 50, 66)'
 assert cn['target']=='_blank' and 'noopener' in cn['rel']
 assert js("(()=>{const c=JSON.parse(sessionStorage.getItem('yueb1ng-region-v1'));return c.country==='CN'&&Object.keys(c).sort().join(',')==='country,time'})()")
@@ -27,7 +27,7 @@ print('PASS CN uses supplied Douyin link/icon, dark ink by day, white at night, 
 # A warm tab uses only a country code, including when lookups are unavailable.
 route(None,None);run('reload');wait("!!window.wabi&&document.querySelector('#social').dataset.regionReady==='true'");assert state()['platform']=='douyin'
 print('PASS valid country cache survives unavailable providers',flush=True)
-route({'country':'US'},None);reload();us=state();assert us['platform']=='x' and us['href']=='https://x.com/yueb1ng' and us['icon']!=cn['icon'] and us['fill']=='rgb(255, 255, 255)'
+route({'country':'US'},None);reload();us=state();assert us['platform']=='x' and us['href']=='https://x.com/yueb1ng' and us['text']==cn['text'] and us['icon']!=cn['icon'] and us['fill']=='rgb(255, 255, 255)'
 run('set','media','light');wait("wabi.theme==='day'&&getComputedStyle(document.querySelector('#social')).color==='rgb(39, 50, 66)'");assert state()['fill']=='rgb(39, 50, 66)'
 print('PASS overseas uses supplied X icon and existing account link in both themes',flush=True)
 route({'country':'invalid'},{'country_code':'CN'});reload();assert state()['platform']=='douyin'
