@@ -1,4 +1,4 @@
-"""Browser coverage for shared glass, drag recovery, and particle-only frames."""
+"""Browser coverage for shared glass, drag recovery, and spinning surface changes."""
 import base64,json,pathlib,subprocess
 root=pathlib.Path(__file__).resolve().parents[1]
 cli=str(root/'.tools/node_modules/agent-browser/bin/agent-browser-win32-x64.exe')
@@ -32,7 +32,7 @@ frames=js("""new Promise(resolve=>{
  if(samples.length>10&&!wabi.planet.footballTransition&&!wabi.planet.pendingFootball)resolve(samples);else requestAnimationFrame(frame)}requestAnimationFrame(frame)
 })""")
 middle=[f for f in frames if f['progress'] is not None and .25<f['progress']<.75]
-check('no stationary glass shell survives the particle-only phase',len(middle)>8 and all(f['glass']==0 and f['source']==0 for f in middle))
+check('glass stays present through the spin change',len(middle)>8 and all(f['glass']==1 for f in middle))
 check('reassembled 2026 football regains its glass',js("wabi.planet.name==='2026 Trionda'&&wabi.planet.glass.presence===1"))
 check('transition does not stall for 100ms',max(f['dt'] for f in frames[1:])<100)
 shot('fluid-football-day-final')

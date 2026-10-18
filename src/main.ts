@@ -4,6 +4,7 @@ import { Blueprint } from './blueprint';
 import { Planets, planetNames } from './planets';
 import { syncTheme, toggleTheme } from './theme';
 import { revealCycle, RandomNameCycle } from './reveal-cycle';
+import { SpoilerVeil } from './spoiler-veil';
 
 const $=<T extends HTMLElement>(selector:string)=>document.querySelector<T>(selector)!;
 const app=$('#wabi'),start=$<HTMLButtonElement>('#start'),orb=$<HTMLButtonElement>('#orb'),greeting=$('#greeting'),swipe=$('#swipe'),social=$<HTMLAnchorElement>('#social'),status=$('#status');
@@ -32,6 +33,7 @@ function setWord(word:string){
   flipWord.textContent=word;flipWord.setAttribute('aria-label',word);flipWord.style.opacity='1';
 }
 setWord(words[0]);
+const veils=[...document.querySelectorAll<HTMLElement>('.reveal-content')].map(el=>new SpoilerVeil(el));
 
 function resetReveals(){document.querySelectorAll<HTMLButtonElement>('[data-reveal]').forEach(button=>{button.setAttribute('aria-expanded','false');button.querySelector<HTMLElement>('.reveal-content')!.dataset.state='closed';});}
 function setActive(next:boolean){
@@ -161,6 +163,7 @@ function tick(now:number){
 
   }
 
+  for(const veil of veils)veil.tick(dt,reduced,active&&!blueprint.active);
   const radius=updateDOM();const day=document.documentElement.dataset.theme==='day';
   const morph=clamp((160-radius)/110,0,1),planetMix=planets.available?morph*morph*(3-2*morph):0;
   scene.render({x,y,radius,active:active&&!blueprint.active,time:elapsed,dt,reduced,tiltX:smoothTiltX,tiltY:smoothTiltY,day,planetMix,orbit,threeParticles:planets.available});

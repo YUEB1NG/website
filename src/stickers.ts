@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import extraFrames from './sticker-frames.json';
 
 // UV windows over the supplied sheet's transparent extraction. Keep internal whites.
 // Coordinates refer to the 1536 × 1024 atlas; sprites retain each sticker's aspect ratio.
@@ -16,14 +17,25 @@ export const stickerFrames:[string,number,number,number,number][]=[
   ['stadium',772,823,230,174],['scarf',1003,833,292,160],
 ];
 
-export async function loadStickers(){
-  const atlas=await new THREE.TextureLoader().loadAsync('/stickers/argentina-atlas.png');
-  atlas.colorSpace=THREE.SRGBColorSpace;
-  // Avoid neighboring stickers bleeding into mip levels at tiny display sizes.
-  atlas.generateMipmaps=false;atlas.minFilter=THREE.LinearFilter;
-  return stickerFrames.map(([name,x,y,w,h])=>{
-    const texture=atlas.clone();texture.name=name;
-    texture.repeat.set(w/1536,h/1024);texture.offset.set(x/1536,1-(y+h)/1024);
-    texture.userData.aspect=w/h;texture.needsUpdate=true;return texture;
-  });
+export type StickerCategory='planet'|'stranger'|'football';
+export type StickerPools=Record<StickerCategory,THREE.Texture[]>;
+export const stickerWeights={planet:{planet:50,stranger:30,football:20},football:{planet:15,stranger:18,football:66}};
+export function pickStickerCategory(mode:'planet'|'football',random=Math.random):StickerCategory{
+  const weights=stickerWeights[mode],value=random()*(weights.planet+weights.stranger+weights.football);
+  return value<weights.planet?'planet':value<weights.planet+weights.stranger?'stranger':'football';
+}
+export function stickerCount(random=Math.random){return 3+Math.floor(random()*4);}
+export async function loadStickers():Promise<StickerPools>{
+  const entries=await Promise.all((['football','planet','stranger'] as const).map(async category=>{
+    const atlas=await new THREE.TextureLoader().loadAsync(`/stickers/${category==='football'?'argentina':category}-atlas.png`);
+    atlas.colorSpace=THREE.SRGBColorSpace;atlas.generateMipmaps=false;atlas.minFilter=THREE.LinearFilter;
+    const frames=category==='football'?stickerFrames:extraFrames[category];
+    const textures=frames.map(frame=>{
+      const [name,x,y,w,h]=frame as [string,number,number,number,number],texture=atlas.clone();texture.name=name;
+      texture.repeat.set(w/1536,h/1024);texture.offset.set(x/1536,1-(y+h)/1024);
+      texture.userData.aspect=w/h;texture.userData.category=category;texture.needsUpdate=true;return texture;
+    });
+    return [category,textures] as const;
+  }));
+  return Object.fromEntries(entries) as StickerPools;
 }

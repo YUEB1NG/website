@@ -1,141 +1,37 @@
 import * as THREE from 'three';
 
-type Surface={positions:Float32Array;colors:Float32Array};
-const count=1500;
-type Triangles={areas:Float64Array;total:number};
-const triangles=new WeakMap<THREE.BufferGeometry,Triangles>();
-const texturePixels=new WeakMap<THREE.Texture,ImageData>();
-const preparedSurfaces=new WeakMap<THREE.Object3D|THREE.Texture,Surface>();
-
-/** Cache triangle areas, not thousands of temporary vectors on every click. */
-function triangleTable(geometry:THREE.BufferGeometry){
-  const existing=triangles.get(geometry);if(existing)return existing;
-  const p=geometry.attributes.position,index=geometry.index,areas=new Float64Array((index?.count??p.count)/3);
-  let total=0;
-  for(let i=0;i<areas.length;i++){
-    const a=index?index.getX(i*3):i*3,b=index?index.getX(i*3+1):i*3+1,c=index?index.getX(i*3+2):i*3+2;
-    const ux=p.getX(b)-p.getX(a),uy=p.getY(b)-p.getY(a),uz=p.getZ(b)-p.getZ(a),vx=p.getX(c)-p.getX(a),vy=p.getY(c)-p.getY(a),vz=p.getZ(c)-p.getZ(a);
-    total+=Math.hypot(uy*vz-uz*vy,uz*vx-ux*vz,ux*vy-uy*vx)*.5;areas[i]=total;
-  }
-  const result={areas,total};triangles.set(geometry,result);return result;
-}
-function search(areas:Float64Array,value:number){let a=0,b=areas.length-1;while(a<b){const m=(a+b)>>1;if(areas[m]<value)a=m+1;else b=m;}return a;}
-
-function surface(root:THREE.Object3D,space:THREE.Matrix4):Surface {
-  root.updateWorldMatrix(true,true);
-  const meshes:{geometry:THREE.BufferGeometry;material:THREE.MeshPhongMaterial;matrix:THREE.Matrix4;table:Triangles;end:number}[]=[];
-  let total=0;
-  root.traverseVisible(object=>{
-    if(!(object instanceof THREE.Mesh)||object.userData.transitionIgnore)return;
-    const material=object.material as THREE.MeshPhongMaterial;
-    if(Array.isArray(material)||material.transparent||material instanceof THREE.ShaderMaterial)return;
-    const table=triangleTable(object.geometry);if(!table.total)return;
-    const matrix=new THREE.Matrix4().multiplyMatrices(space,object.matrixWorld),e=matrix.elements;
-    total+=table.total*(e[0]*e[0]+e[1]*e[1]+e[2]*e[2]);
-    meshes.push({geometry:object.geometry,material,matrix,table,end:total});
-  });
-  const positions=new Float32Array(count*3),colors=new Float32Array(count*3),point=new THREE.Vector3(),color=new THREE.Color(),uvPoint=new THREE.Vector2();
-  let seed=8187;const rand=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
-  for(let i=0;i<count;i++){
-    const pick=rand()*total,mesh=meshes.find(m=>m.end>=pick);if(!mesh)continue;
-    const {geometry,material,matrix,table}=mesh,index=geometry.index,p=geometry.attributes.position,uv=geometry.attributes.uv,vertexColor=geometry.attributes.color;
-    const face=search(table.areas,rand()*table.total)*3;
-    const ids=[0,1,2].map(k=>index?index.getX(face+k):face+k),s=Math.sqrt(rand()),t=rand(),weights=[1-s,s*(1-t),s*t];
-    point.set(0,0,0);uvPoint.set(0,0);let cr=0,cg=0,cb=0;
-    for(let k=0;k<3;k++){const n=ids[k],weight=weights[k];point.x+=p.getX(n)*weight;point.y+=p.getY(n)*weight;point.z+=p.getZ(n)*weight;if(uv){uvPoint.x+=uv.getX(n)*weight;uvPoint.y+=uv.getY(n)*weight;}if(vertexColor){cr+=vertexColor.getX(n)*weight;cg+=vertexColor.getY(n)*weight;cb+=vertexColor.getZ(n)*weight;}}
-    point.applyMatrix4(matrix).toArray(positions,i*3);color.copy(material.color??new THREE.Color('white'));
-    if(vertexColor&&material.vertexColors){color.r*=cr;color.g*=cg;color.b*=cb;}
-    const map=material.map;
-    if(map?.image){
-      let pixels=texturePixels.get(map);
-      if(!pixels){const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const ctx=canvas.getContext('2d',{willReadFrequently:true})!;ctx.drawImage(map.image as CanvasImageSource,0,0,128,128);pixels=ctx.getImageData(0,0,128,128);texturePixels.set(map,pixels);}
-      map.transformUv(uvPoint);const x=Math.max(0,Math.min(127,Math.floor(uvPoint.x*128))),y=Math.max(0,Math.min(127,Math.floor(uvPoint.y*128))),n=(y*128+x)*4;
-      color.multiply(new THREE.Color().setRGB(pixels.data[n]/255,pixels.data[n+1]/255,pixels.data[n+2]/255,THREE.SRGBColorSpace));
-    }
-    color.toArray(colors,i*3);
-  }
-  return {positions,colors};
-}
-
-/** Keep the same shader variant before, during and after a dissolve. */
+/** Alpha hashing keeps both surfaces on a single precompiled shader variant. */
 export function prepareDissolve(root:THREE.Object3D){root.traverse(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])if(!m.transparent&&!(m instanceof THREE.ShaderMaterial)&&!m.alphaHash){m.alphaHash=true;m.needsUpdate=true;}});}
-export function prepareFootballSurface(target:THREE.Object3D,key:THREE.Object3D|THREE.Texture=target){
-  target.updateWorldMatrix(true,true);
-  preparedSurfaces.set(key,surface(target,target.matrixWorld.clone().invert()));
-}
-/** Reuse samples in object space; rotation and drag are applied at the instant of the tap. */
-function sourceSurface(source:THREE.Object3D,root:THREE.Group):Surface{
-  const key=source instanceof THREE.Mesh?(source.material as THREE.MeshPhongMaterial).map??source:source;
-  const cached=preparedSurfaces.get(key);
-  const matrix=root.matrixWorld.clone().invert().multiply(source.matrixWorld);
-  if(!cached)return surface(source,root.matrixWorld.clone().invert());
-  return transformSurface(cached,matrix);
-}
-function transformSurface(cached:Surface,matrix:THREE.Matrix4):Surface{
-  const positions=cached.positions.slice(),point=new THREE.Vector3();
-  for(let i=0;i<count;i++)point.fromArray(positions,i*3).applyMatrix4(matrix).toArray(positions,i*3);
-  return {positions,colors:cached.colors};
-}
 
-export function createFootballParticles(){
-    const scatter=new Float32Array(count*3),delay=new Float32Array(count);
-    for(let i=0;i<count;i++){
-      const a=i*2.399963229728653,y=1-2*(i+.5)/count,r=Math.sqrt(1-y*y),spread=1.7+((i*37)%101)/101*.7;
-      scatter.set([Math.cos(a)*r*spread,y*1.55,Math.sin(a)*r*spread],i*3);delay[i]=(i%17)/17*.055;
-    }
-    const geometry=new THREE.BufferGeometry();
-    geometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array(count*3),3));geometry.setAttribute('destination',new THREE.BufferAttribute(new Float32Array(count*3),3));geometry.setAttribute('scatter',new THREE.BufferAttribute(scatter,3));geometry.setAttribute('color',new THREE.BufferAttribute(new Float32Array(count*3),3));geometry.setAttribute('targetColor',new THREE.BufferAttribute(new Float32Array(count*3),3));geometry.setAttribute('delay',new THREE.BufferAttribute(delay,1));
-    const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,vertexColors:true,uniforms:{progress:{value:0},pointSize:{value:3},opacity:{value:0}},
-      vertexShader:`attribute vec3 destination;attribute vec3 scatter;attribute vec3 targetColor;attribute float delay;uniform float progress;uniform float pointSize;varying vec3 vTint;
-        void main(){float p=clamp((progress-delay)/(1.-delay),0.,1.);float outT=clamp(p/.38,0.,1.);outT=1.-pow(1.-outT,3.);float inT=smoothstep(.40,1.,p);
-        vec3 cloud=scatter;float swirl=sin(p*3.14159265)*.18;cloud.x+=sin(scatter.z*2.+p*5.)*swirl;cloud.y+=cos(scatter.x*3.+p*4.)*swirl;
-        vec3 pos=mix(mix(position,cloud,outT),destination,inT);vTint=mix(color,targetColor,smoothstep(.32,.88,p));gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.);gl_PointSize=pointSize*(.8+.2*sin(delay*70.));}`,
-      fragmentShader:`uniform float opacity;varying vec3 vTint;void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;gl_FragColor=vec4(vTint,opacity*(1.-smoothstep(.28,.5,d)));
-        #include <tonemapping_fragment>
-        #include <colorspace_fragment>
-      }`
-    });
-    const points=new THREE.Points(geometry,material);points.frustumCulled=false;points.renderOrder=8;return points;
-}
-
-/** One GPU point cloud moves from the outgoing surface to the incoming ball. */
+/** Accelerate the same solid body, change its surface at speed, then coast down. */
 export class FootballTransition {
-  readonly points:THREE.Points<THREE.BufferGeometry,THREE.ShaderMaterial>;
-  readonly target:THREE.Group;
+  readonly duration=3.8;
   age=0;
-  readonly duration=2.15;
-  private outgoing=new Map<THREE.Material,{opacity:number}>();
-  private incoming=new Map<THREE.Material,{opacity:number}>();
+  speed=.045;
+  private outgoing=new Map<THREE.Material,number>();
+  private incoming=new Map<THREE.Material,number>();
   private sources:THREE.Object3D[];
-  private sourceVisibility:boolean[];
-  constructor(root:THREE.Group,target:THREE.Group,points:ReturnType<typeof createFootballParticles>,source:THREE.Object3D){
-    this.target=target;this.sources=[...root.children];this.sourceVisibility=this.sources.map(o=>o.visible);
-    root.updateWorldMatrix(true,true);
-    target.updateMatrix();
-    const prepared=preparedSurfaces.get(target);
-    const from=sourceSurface(source,root),to=prepared?transformSurface(prepared,target.matrix):surface(target,new THREE.Matrix4());
-    this.points=points;
-    for(const [name,values] of Object.entries({position:from.positions,destination:to.positions,color:from.colors,targetColor:to.colors})){
-      const attribute=this.points.geometry.getAttribute(name) as THREE.BufferAttribute;(attribute.array as Float32Array).set(values);attribute.needsUpdate=true;
-    }
-    this.points.material.uniforms.progress.value=0;this.points.material.uniforms.opacity.value=0;
-    const remember=(object:THREE.Object3D,map:typeof this.outgoing)=>object.traverseVisible(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])if(!map.has(m)){map.set(m,{opacity:m.opacity});}});
+  private visibility:boolean[];
+  constructor(private root:THREE.Group,readonly target:THREE.Group,private source:THREE.Object3D){
+    this.sources=[...root.children];this.visibility=this.sources.map(o=>o.visible);
+    const remember=(object:THREE.Object3D,cache:Map<THREE.Material,number>)=>object.traverseVisible(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])cache.set(m,m.opacity);});
     remember(root,this.outgoing);remember(target,this.incoming);
-    this.incoming.forEach((_,m)=>m.opacity=0);
-    target.visible=false;root.add(target,this.points);
+    this.incoming.forEach((_,m)=>m.opacity=0);target.visible=false;
+    target.rotation.y=source.rotation.y;root.add(target);
   }
-  tick(dt:number,radius:number,pixelRatio:number,reduced:boolean){
-    this.age=reduced?this.duration:Math.min(this.duration,this.age+dt);const t=this.age/this.duration;
-    this.points.material.uniforms.progress.value=t;this.points.material.uniforms.pointSize.value=Math.min(5,radius*.05)*pixelRatio;
-    this.points.material.uniforms.opacity.value=THREE.MathUtils.smoothstep(t,0,.09)*(1-THREE.MathUtils.smoothstep(t,.88,1));
-    const old=1-THREE.MathUtils.smoothstep(t,0,.13),next=THREE.MathUtils.smoothstep(t,.84,1);
-    this.outgoing.forEach((base,m)=>{m.opacity=base.opacity*old;if(m instanceof THREE.ShaderMaterial&&m.uniforms.opacity)m.uniforms.opacity.value=m.opacity;});this.incoming.forEach((base,m)=>m.opacity=base.opacity*next);
-    this.sources.forEach((o,i)=>o.visible=this.sourceVisibility[i]&&old>0);this.target.visible=next>0;
-    return t===1;
+  tick(dt:number,_radius:number,_pixelRatio:number,reduced:boolean){
+    this.age=reduced?this.duration:Math.min(this.duration,this.age+dt);
+    this.speed=this.age<1.05?THREE.MathUtils.lerp(.045,9,THREE.MathUtils.smoothstep(this.age,0,1.05)):THREE.MathUtils.lerp(9,.08,THREE.MathUtils.smoothstep(this.age,1.05,this.duration));
+    const turn=reduced?0:this.speed*dt;this.source.rotation.y+=turn;this.target.rotation.y+=turn;
+    const next=THREE.MathUtils.smoothstep(this.age,.92,1.34),old=1-next;
+    this.outgoing.forEach((opacity,m)=>{m.opacity=opacity*old;if(m instanceof THREE.ShaderMaterial&&m.uniforms.opacity)m.uniforms.opacity.value=m.opacity;});
+    this.incoming.forEach((opacity,m)=>m.opacity=opacity*next);
+    this.sources.forEach((o,i)=>o.visible=this.visibility[i]&&old>0);this.target.visible=next>0;
+    return this.age===this.duration;
   }
   dispose(){
-    for(const cache of [this.outgoing,this.incoming])cache.forEach((base,m)=>{Object.assign(m,base);if(m instanceof THREE.ShaderMaterial&&m.uniforms.opacity)m.uniforms.opacity.value=base.opacity;});
-    this.sources.forEach((o,i)=>o.visible=this.sourceVisibility[i]);this.points.removeFromParent();this.target.removeFromParent();this.target.visible=true;
+    for(const cache of [this.outgoing,this.incoming])cache.forEach((opacity,m)=>{m.opacity=opacity;if(m instanceof THREE.ShaderMaterial&&m.uniforms.opacity)m.uniforms.opacity.value=opacity;});
+    this.sources.forEach((o,i)=>o.visible=this.visibility[i]);this.target.removeFromParent();this.target.visible=true;
   }
-  get diagnostics(){return {progress:this.age/this.duration,particles:count,sourceCount:this.sources.length,sourceVisible:this.sources.filter(o=>o.visible).length,targetVisible:this.target.visible};}
+  get diagnostics(){return {style:'spin',progress:this.age/this.duration,speed:this.speed,sourceVisible:this.sources.filter(o=>o.visible).length,targetVisible:this.target.visible,angle:this.target.rotation.y};}
 }
