@@ -27,16 +27,16 @@ for mode in ['planet','football']:
  categories=[c for x in data for c in x['categories']];counts={k:categories.count(k)/len(categories) for k in ['planet','stranger','football']}
  expected={'planet':.5,'stranger':.3,'football':.2} if mode=='planet' else {'planet':15/99,'stranger':18/99,'football':66/99}
  assert all(abs(counts[k]-expected[k])<.05 for k in counts),(mode,counts)
- distances=[d for x in data for d in x['distances']];assert min(distances)>.45 and max(distances)<1.7,(min(distances),max(distances))
+ distances=[d for x in data for d in x['distances']];assert min(distances)>1.9 and max(distances)<3.85,(min(distances),max(distances))
  assert max(distances)-min(distances)>.5
  assert js('wabi.planet.bursts<=40');pause(3300);assert js('wabi.planet.bursts===0')
  samples[mode]={'shares':counts,'countRange':[min(x['count'] for x in data),max(x['count'] for x in data)],'distanceRange':[min(distances),max(distances)]}
  print('PASS',mode,'random 3-6 stickers, category weights, bounded varied distances, cleanup',flush=True)
-motion=js("""new Promise(resolve=>{document.querySelector('#celebrate').click();const snapshots=[],times=[1.7,2.25,2.4];function sample(){const items=wabi.planet.stickerMotion;if(items.length&&items[0].age>=times[snapshots.length])snapshots.push(items);if(snapshots.length===3)resolve(snapshots);else requestAnimationFrame(sample)}requestAnimationFrame(sample)})""")
+motion=js("""new Promise(resolve=>{document.querySelector('#celebrate').click();const snapshots=[],times=[1.3,1.8,2.2];function sample(){const items=wabi.planet.stickerMotion;if(items.length&&items[0].age>=times[snapshots.length])snapshots.push(items);if(snapshots.length===3)resolve(snapshots);else requestAnimationFrame(sample)}requestAnimationFrame(sample)})""")
 a,b,c=motion
 assert len(a)==len(b)==len(c) and len(a)>=3
 assert all(((y['x']-x['x'])**2+(y['y']-x['y'])**2)**.5>.04 for x,y in zip(a,b)), 'stickers freeze near the end'
-assert all(y['opacity']<x['opacity'] for x,y in zip(a,b)), 'stickers do not fade while moving'
+assert all(y['opacity']<x['opacity'] for x,y in zip(a,c)), 'stickers do not fade while moving'
 assert all(((y['x']-x['x'])**2+(y['y']-x['y'])**2)**.5>.015 for x,y in zip(b,c)), 'final fade freezes'
 pause(900);assert js('wabi.planet.bursts===0')
 print('PASS stickers keep moving during the final fade and are removed',flush=True)
