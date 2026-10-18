@@ -4,7 +4,7 @@ import type { ParticleFrame } from './scene';
 import { createFootball, footballEditions, footballPlayOrder } from './football';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { loadStickers } from './stickers';
-import { portraitOrbit, PORTRAIT_LAYER } from './portrait-orbit';
+import { portraitOrbit, orbitApproach, PORTRAIT_LAYER } from './portrait-orbit';
 import { FootballTransition, createFootballParticles, prepareDissolve, prepareFootballSurface } from './football-transition';
 import { FluidGlass } from './fluid-glass';
 
@@ -233,9 +233,9 @@ export class Planets {
     if(!reduced){this.rotation+=dt*.045;if(!this.footballTransition)this.body.rotation.y+=dt*.045;this.clouds.rotation.y=this.body.rotation.y+this.rotation*.08;this.rings.rotation.y+=dt*.008;this.orbitAngle+=dt*.11;const rotating=this.keepsake?.userData.rotating??this.keepsake;if(rotating&&!this.footballTransition)rotating.rotation.y+=dt*.08;}
     if(!this.footballTransition)this.rings.children.forEach(c=>{(c as THREE.Mesh<THREE.RingGeometry,THREE.MeshPhongMaterial>).material.opacity=(this.index===5?.85:.22)*(1-smooth(Math.min(1,orbitMix*2)));});
     const count=this.orbitSprites.length,blend=smooth(orbitMix);
-    this.orbitSprites.forEach((sprite,i)=>{const p=particles[i],slot=portraitOrbit(i/count*Math.PI*2+this.orbitAngle);const orbital=this.orbitalPosition.set(slot.x,slot.y,slot.z).add(this.group.position);const natural=this.naturalPosition.set(((p?.x??x)-w/2)/radius,(h/2-(p?.y??y))/radius,-2);
-      // One persistent sprite on one continuous path, without fading to a duplicate.
-      sprite.position.copy(natural.lerp(orbital,blend));sprite.visible=i<count&&mix>.5&&((!!p?.visible&&!reduced)||orbitMix>.005);sprite.material.opacity=1;sprite.userData.pop=Math.max(0,(sprite.userData.pop??0)-dt*1.8);const pop=1+Math.sin((sprite.userData.pop??0)*Math.PI)*.3;const size=THREE.MathUtils.lerp((p?.visible?p.size:0)/radius,slot.size,blend);sprite.scale.setScalar(Math.max(.001,size)*pop);
+    this.orbitSprites.forEach((sprite,i)=>{const p=particles[i],slot=portraitOrbit(i/count*Math.PI*2+this.orbitAngle);const orbital=this.orbitalPosition.set(slot.x,slot.y,slot.z);const natural=this.naturalPosition.set(((p?.x??x)-w/2)/radius,(h/2-(p?.y??y))/radius,-2).sub(this.group.position);
+      // Keep one sprite on a continuous exterior arc for both gathering and release.
+      orbitApproach(natural,orbital,blend,sprite.position).add(this.group.position);sprite.visible=i<count&&mix>.5&&((!!p?.visible&&!reduced)||orbitMix>.005);sprite.material.opacity=1;sprite.userData.pop=Math.max(0,(sprite.userData.pop??0)-dt*1.8);const pop=1+Math.sin((sprite.userData.pop??0)*Math.PI)*.3;const size=THREE.MathUtils.lerp((p?.visible?p.size:0)/radius,slot.size,blend);sprite.scale.setScalar(Math.max(.001,size)*pop);
     });
     for(const b of [...this.bursts]){b.age+=dt;if(b.age>b.life){this.removeBurst(b);continue;}if(!reduced){b.velocity.y-=dt*.9;b.sprite.position.addScaledVector(b.velocity,dt);b.sprite.material.rotation+=dt*.1;}b.sprite.material.opacity=1-smooth(Math.max(0,(b.age/b.life-.65)/.35));}
     if(this.footballTransition?.tick(dt,radius,this.renderer!.getPixelRatio(),reduced)){

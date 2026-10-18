@@ -25,13 +25,27 @@ result=js("""(async()=>{
    samples.push({phase:i,side,pixel:Array.from(pixel)});
   }
  }
+ let minimumClearance=Infinity,maximumStep=0,previous=[];
+ const particles=Array.from({length:20},(_,i)=>({x:195+Math.sin(i*2.4)*140,y:320+Math.cos(i*1.7)*180,size:28,visible:true}));
+ for(let frame=0;frame<=120;frame++){
+  const blend=frame<=60?frame/60:(120-frame)/60;
+  p.render(195,320,50,1,0,true,true,blend,particles);
+  p.orbitSprites.forEach((s,i)=>{
+   minimumClearance=Math.min(minimumClearance,s.position.distanceTo(p.group.position)-s.scale.x*.71);
+   if(previous[i])maximumStep=Math.max(maximumStep,s.position.distanceTo(previous[i]));
+   previous[i]=s.position.clone();
+  });
+ }
  const captureLayers=p.glass.camera.layers.mask,portraitLayers=p.orbitSprites.map(s=>s.layers.mask);
- p.canvas.remove();return {samples,captureLayers,portraitLayers};
+ p.canvas.remove();return {samples,captureLayers,portraitLayers,minimumClearance,maximumStep};
 })()""")
 for sample in result['samples']:
  r,g,b,a=sample['pixel']
  if sample['side']=='front':assert r>245 and g<8 and b<8,("front avatar clipped or refracted",sample)
  else:assert b>r+30,("rear avatar visible through globe",sample)
+assert result['minimumClearance']>1.3,('portrait crosses the glass shell',result['minimumClearance'])
+assert result['maximumStep']<.35,('discontinuous gathering / release',result['maximumStep'])
+print('PASS gathering and release stay outside the sphere without position jumps',flush=True)
 assert all(mask & result['captureLayers']==0 for mask in result['portraitLayers'])
 print('PASS 24 GPU pixel checks across 12 orbit phases: crisp front portraits, occluded rear portraits',flush=True)
 (root/'artifacts/orbit-occlusion-checks.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
