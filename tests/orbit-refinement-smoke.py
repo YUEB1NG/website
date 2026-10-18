@@ -40,7 +40,7 @@ point=js("(()=>{const p=wabi.planet.orbitPortraits.find(p=>p.z>1&&Math.abs(p.x)<
 run('mouse','move',str(round(point['x'])),str(round(point['y'])));run('mouse','down');run('mouse','up')
 check('front portrait receives clicks ahead of the globe',"wabi.planet.bursts>=3&&wabi.planet.bursts<=6&&wabi.state==='revealed'")
 click('#football-toggle');wait('wabi.planet.footballTransition===null')
-check('football spin change still completes',"wabi.planet.mode==='football'")
+check('football particle change still completes',"wabi.planet.mode==='football'")
 run('set','media','light','reduced-motion');pause(150);a=js('wabi.planet.orbitAngle');pause(350)
 check('reduced motion still stops orbital motion',f'Math.abs(wabi.planet.orbitAngle-({a}))<1e-10')
 assert not run('errors'),run('errors')

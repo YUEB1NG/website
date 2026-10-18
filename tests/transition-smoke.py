@@ -1,4 +1,4 @@
-"""Regression coverage for continuous sphere entry and interruptible spinning transitions."""
+"""Regression coverage for continuous sphere entry and interruptible particle morphs."""
 import base64,json,pathlib,subprocess,sys
 root=pathlib.Path(__file__).resolve().parents[1]
 cli=str(root/'.tools/node_modules/agent-browser/bin/agent-browser-win32-x64.exe')
@@ -25,28 +25,31 @@ check('first surface is Earth',js("wabi.planet.name==='Earth'"))
 click('#everything')
 check('everything has no button or scene effect',js("document.querySelector('#everything').tagName==='SPAN'&&!document.querySelector('.flyover')&&wabi.planet.name==='Earth'"))
 timing=js("""new Promise(resolve=>{
- const programs=wabi.planet.shaderPrograms,t=performance.now();document.querySelector('#football-toggle').click();
- const ms=performance.now()-t,frames=[];let previous=t;
- function frame(now){const phase=wabi.planet.footballTransition;frames.push({dt:now-previous,programs:wabi.planet.shaderPrograms,phase,glass:wabi.planet.glass.presence});previous=now;
-  if(phase)requestAnimationFrame(frame);else resolve({ms,programs,frames});
+ const programs=wabi.planet.shaderPrograms,t=performance.now();
+ document.querySelector('#football-toggle').click();
+ const ms=performance.now()-t,transition=wabi.planet.footballTransition,frames=[];
+ let previous=t;
+ function frame(now){frames.push({dt:now-previous,programs:wabi.planet.shaderPrograms});previous=now;
+  if(now-t<550)requestAnimationFrame(frame);else resolve({ms,transition,programs,frames});
  }requestAnimationFrame(frame);
 })""")
-phases=[f['phase'] for f in timing['frames'] if f['phase']]
-check('first click starts without blocking',timing['ms']<16)
-check('first spin reuses warmed shader programs',all(f['programs']==timing['programs'] for f in timing['frames'][:-1]))
-check('spin has no frame stall over 100ms',max(f['dt'] for f in timing['frames'])<100)
-check('spin accelerates then gradually coasts',max(p['speed'] for p in phases)>8.8 and phases[0]['speed']<.3 and phases[-1]['speed']<.12)
-check('surface stays visible throughout the change',all(p['sourceVisible']>0 or p['targetVisible'] for p in phases))
-check('glass stays continuous through the spin',all(f['glass']==1 for f in timing['frames']))
-check('rotation keeps a single direction',all(b['angle']>=a['angle'] for a,b in zip(phases,phases[1:])))
-check('first ball is newest 2026',js("wabi.planet.name==='2026 Trionda'"))
+check('first football click reuses precomputed surfaces',timing['ms']<16)
+check('first morph uses only warmed shader programs',all(f['programs']==timing['programs'] for f in timing['frames']))
+check('first morph has no frame stall over 80ms',max(f['dt'] for f in timing['frames'])<80)
+check('like starts a surface particle transition',timing['transition']['particles']==1500)
+wait('wabi.planet.footballTransition?.progress>.25')
+run('screenshot',str(root/'artifacts/transition-exploded.png'))
+check('old meshes completely leave the particle-only stage',js("wabi.planet.footballTransition.sourceVisible===0"))
+check('outgoing state survives until reassembly',js("wabi.planet.name==='Earth'&&wabi.planet.footballTransition.progress<1"))
+wait('wabi.planet.footballTransition===null&&!wabi.planet.pendingFootball')
+check('reassembly completes as newest 2026 ball',js("wabi.planet.name==='2026 Trionda'"))
 run('screenshot',str(root/'artifacts/transition-reassembled.png'))
 click('#football-toggle')
 js("for(let i=0;i<5;i++)document.querySelector('#football-toggle').click()")
 wait("wabi.planet.footballTransition===null&&!wabi.planet.pendingFootball")
 check('rapid clicks coalesce and complete without piling effects',js("wabi.planet.name==='2018 Telstar 18'"))
 click('#football-toggle');run('press','Escape')
-check('return to ring cancels unfinished spin',js("wabi.state==='rest'&&wabi.planet.footballTransition===null"))
+check('return to ring cancels unfinished particles',js("wabi.state==='rest'&&wabi.planet.footballTransition===null"))
 wait('wabi.position.radius>199.9');click('#start');wait('wabi.position.radius<50.1')
 check('enter after cancellation restores a solid planet',js("wabi.planet.mode==='planet'&&wabi.planet.surfaceMix>.99"))
 run('set','media','light','reduced-motion');click('#football-toggle')
