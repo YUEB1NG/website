@@ -8,10 +8,14 @@ def js(s):return json.loads(run('eval','--json','-b',base64.b64encode(s.encode()
 run('set','viewport','390','844');run('set','media','light');run('open','http://127.0.0.1:5173/');run('wait','--fn',"window.wabi?.state==='rest'");run('snapshot','-i');run('click','#start');run('wait','--fn','wabi.position.radius<50.1')
 records=[]
 for i in range(3):
- r=js("""new Promise(resolve=>{const frames=[],tasks=[];const obs=new PerformanceObserver(list=>{for(const e of list.getEntries())tasks.push({start:e.startTime,duration:e.duration})});obs.observe({entryTypes:['longtask']});const start=performance.now();let last=start,done=0;document.querySelector('#football-toggle').click();function frame(now){const p=wabi.planet;frames.push({time:now-start,dt:now-last,phase:p.footballTransition?.progress??null,programs:p.shaderPrograms,glass:p.glass.presence,mode:p.mode,targetAngle:p.footballTransition?.targetAngle??null,pose:p.renderPose??null,maintenance:p.maintenance??null});last=now;if(!p.footballTransition&&!p.pendingFootball){if(!done)done=now;if(now-done>1700){obs.disconnect();resolve({frames,tasks:tasks.map(t=>({start:t.start-start,duration:t.duration})),name:p.name});return}}requestAnimationFrame(frame)}requestAnimationFrame(frame)})""")
+ r=js("""new Promise(resolve=>{const frames=[],tasks=[];const obs=new PerformanceObserver(list=>{for(const e of list.getEntries())tasks.push({start:e.startTime,duration:e.duration})});obs.observe({entryTypes:['longtask']});const start=performance.now();let last=start,done=0;document.querySelector('#football-toggle').click();function frame(now){const p=wabi.planet;frames.push({time:now-start,dt:now-last,phase:p.footballTransition?.progress??null,solid:p.footballTransition?.solidOpacity??1,programs:p.shaderPrograms,glass:p.glass.presence,mode:p.mode,targetAngle:p.footballTransition?.targetAngle??null,pose:p.renderPose??null,maintenance:p.maintenance??null});last=now;if(!p.footballTransition&&!p.pendingFootball){if(!done)done=now;if(now-done>1700){obs.disconnect();resolve({frames,tasks:tasks.map(t=>({start:t.start-start,duration:t.duration})),name:p.name});return}}requestAnimationFrame(frame)}requestAnimationFrame(frame)})""")
  records.append(r);frames=r['frames'];late=[f for f in frames if f['phase'] is None or f['phase']>.75];print(json.dumps({'ball':r['name'],'maxFrameMs':max(f['dt'] for f in frames),'lateMaxMs':max(f['dt'] for f in late),'longTasks':r['tasks'],'newPrograms':max(f['programs'] for f in frames)-frames[0]['programs']}),flush=True)
  if '--baseline' not in sys.argv:
   assert max(f['dt'] for f in late)<65, 'late reassembly hitch'
+  morph=[f for f in frames if f['phase'] is not None]
+  reveal=[f for f in morph if .05<f['solid']<.95]
+  assert len(reveal)>20 and reveal[-1]['time']-reveal[0]['time']>450, 'solid appears too abruptly'
+  assert all(abs(b['solid']-a['solid'])<.09 for a,b in zip(morph,morph[1:])), 'solid opacity jumps'
   handoff=next(j for j in range(1,len(frames)) if frames[j]['phase'] is None and frames[j-1]['phase'] is not None)
   before,after=frames[handoff-1],frames[handoff]
   assert before['pose'] and after['pose']

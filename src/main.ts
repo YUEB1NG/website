@@ -14,7 +14,7 @@ const scene=new Scene($<HTMLCanvasElement>('#scene'));
 const planets=new Planets();
 let entryAge=0,socialAlpha=0,pressedParticle:number|null=null,lastObjectName='';
 const caption=$('#object-caption');
-let planetIndex=2,hasEntered=false,nameUnlocked=false,wordUnlocked=false;
+let planetIndex=2,hasEntered=false,queuedEntry=false,nameUnlocked=false,wordUnlocked=false;
 let orbit=false,holdTimer:ReturnType<typeof setTimeout>|undefined,held=false;
 function clearHold(){if(holdTimer!==undefined)clearTimeout(holdTimer);holdTimer=undefined;}
 function toggleOrbit(){orbit=!orbit;orb.setAttribute('aria-pressed',String(orbit));status.textContent=orbit?'Avatars gathered into an orbit. Long press again to release.':'Avatars released.';}
@@ -37,7 +37,14 @@ setWord(words[0]);
 
 function resetReveals(){document.querySelectorAll<HTMLButtonElement>('[data-reveal]').forEach(button=>{button.setAttribute('aria-expanded','false');button.querySelector<HTMLElement>('.reveal-content')!.dataset.state='closed';});}
 function setActive(next:boolean){
-  const changed=active!==next;if(changed&&next){if(hasEntered)planetIndex=(planetIndex+1)%planetNames.length;hasEntered=true;planets.select(planetIndex);syncObject();}active=next;targetY=next?height*.4:height;targetX=width/2;
+  const changed=active!==next;
+  const incoming=hasEntered?(planetIndex+1)%planetNames.length:2;
+  // A fast second tap must not replace a still-visible outgoing surface.
+  // Finish closing to the ring, stage the next body, then honor that tap.
+  if(changed&&next&&planets.diagnostics.index!==incoming&&planets.diagnostics.surfaceMix>.0001&&!reduced){queuedEntry=true;targetY=height;targetX=width/2;return;}
+  queuedEntry=false;
+  if(changed&&next){planetIndex=incoming;hasEntered=true;planets.select(planetIndex);syncObject();}
+  active=next;targetY=next?height*.4:height;targetX=width/2;
   app.dataset.state=next?'revealed':'rest';orb.setAttribute('aria-label',next?`${planetNames[planetIndex]}. Click to return to the transparent ring`:`Transparent ring. Click to discover ${planetNames[hasEntered?(planetIndex+1)%planetNames.length:2]}`);
   orb.title=next?'Click: transparent ring · Long press or O: gather into orbit':'Click to discover the next planet';
   if(!next){orbit=false;orb.setAttribute('aria-pressed','false');clearHold();planets.cancelFootball();}
@@ -165,6 +172,12 @@ function tick(now:number){
 
   const radius=updateDOM();const day=document.documentElement.dataset.theme==='day';
   const morph=clamp((160-radius)/110,0,1),planetMix=planets.available?morph*morph*(3-2*morph):0;
+  // Select while fully transparent, before a tap or drag can reveal any pixels.
+  if(!active&&planetMix===0){
+    const incoming=hasEntered?(planetIndex+1)%planetNames.length:2;
+    planets.select(incoming);
+    if(queuedEntry)setActive(true);
+  }
   scene.render({x,y,radius,active:active&&!blueprint.active,time:elapsed,dt,reduced,tiltX:smoothTiltX,tiltY:smoothTiltY,day,planetMix,orbit,threeParticles:planets.available});
   planets.render(x,y,radius,planetMix,dt,reduced,day,scene.orbitBlend,scene.particleFrames,dragging);
   if(lastObjectName!==planets.objectName)syncObject();

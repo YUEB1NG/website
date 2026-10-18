@@ -13,6 +13,7 @@ def check(name,ok):
  checks.append(name);print('PASS',name,flush=True)
 def wait(code):run('wait','--fn',code)
 def click(selector):run('click',selector)
+run('console','--clear');run('errors','--clear')
 run('set','viewport','390','844');run('set','media','light')
 run('open',sys.argv[1] if len(sys.argv)>1 else 'http://127.0.0.1:5173/')
 wait("window.wabi?.state==='rest'");run('snapshot','-i')
