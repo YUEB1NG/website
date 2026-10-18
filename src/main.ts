@@ -4,9 +4,11 @@ import { Blueprint } from './blueprint';
 import { Planets, planetNames } from './planets';
 import { syncTheme, toggleTheme } from './theme';
 import { revealCycle, RandomNameCycle } from './reveal-cycle';
+import { initRegionalSocial } from './regional-social';
 
 const $=<T extends HTMLElement>(selector:string)=>document.querySelector<T>(selector)!;
 const app=$('#wabi'),start=$<HTMLButtonElement>('#start'),orb=$<HTMLButtonElement>('#orb'),greeting=$('#greeting'),swipe=$('#swipe'),social=$<HTMLAnchorElement>('#social'),status=$('#status');
+initRegionalSocial(social);
 const media=matchMedia('(prefers-reduced-motion: reduce)');
 const scene=new Scene($<HTMLCanvasElement>('#scene'));
 const planets=new Planets();
@@ -133,7 +135,7 @@ media.addEventListener('change',()=>{reduced=media.matches;if(reduced){blueprint
 function tick(now:number){
   const dt=Math.min((now-last)/1000,.032);last=now;elapsed+=dt;
   if(active)entryAge+=dt;
-  const socialTarget=active&&entryAge>1.1?1:0;socialAlpha=reduced?socialTarget:socialAlpha+(socialTarget-socialAlpha)*(1-Math.exp(-dt*1.8));
+  const socialTarget=active&&entryAge>1.1&&social.dataset.regionReady==='true'?1:0;socialAlpha=reduced?socialTarget:socialAlpha+(socialTarget-socialAlpha)*(1-Math.exp(-dt*1.8));
   blueprint.tick(now);
   if(!reduced){
     // Substeps keep the original stiff spring stable across refresh rates.
