@@ -23,7 +23,8 @@
 :root[data-theme=day]{--page:#f4f6fa;--ink:#273242;color-scheme:light}
 :root[data-theme=night]{color-scheme:dark}
 html,body{background:var(--page)}
-.chrome-safe{position:fixed;left:0;right:0;top:0;height:max(env(safe-area-inset-top),2px);background:var(--page);z-index:30;pointer-events:none}
+/* Keep the browser-safe backing below the full-bleed opening sheet. */
+.chrome-safe{position:fixed;left:0;right:0;top:0;height:max(env(safe-area-inset-top),2px);background:var(--page);z-index:10;pointer-events:none}
 #planet-scene{position:absolute;transform:translate(-50%,-50%);pointer-events:none;z-index:1}
 .greeting,.greeting *,.social{text-shadow:none;box-shadow:none}
 .name-line{width:max-content;min-width:230px;margin:0 auto;height:43px}
