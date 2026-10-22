@@ -1,5 +1,5 @@
 """Start/stop this standalone Windows preview, without a desktop-app process."""
-import argparse,ctypes,json,pathlib,shutil,socket,subprocess,time,urllib.request
+import os,argparse,ctypes,json,pathlib,shutil,socket,subprocess,time,urllib.request
 from ctypes import wintypes
 ROOT=pathlib.Path(__file__).resolve().parent
 STATE=ROOT/'artifacts'/'local-server.json'
@@ -37,8 +37,9 @@ with socket.socket() as probe:
 node=pathlib.Path('D:/nodejs/node.exe')
 if not node.exists():node=pathlib.Path(shutil.which('node') or '')
 if not node.is_file():raise SystemExit('Install standalone Node.js first')
-if not args.dev and not (ROOT/'dist/index.html').exists():raise SystemExit('Build first: npm run build')
+if not args.dev and not (ROOT/'dist/client/index.html').exists():raise SystemExit('Build first: npm run build')
 STATE.parent.mkdir(exist_ok=True)
+os.environ.update(WRANGLER_LOG_PATH=str(ROOT/'.tools/wrangler-logs'),WRANGLER_SEND_METRICS='false',CLOUDFLARE_CF_FETCH_ENABLED='false')
 command=[str(node),str(ROOT/'node_modules/vite/bin/vite.js')]
 if not args.dev:command.append('preview')
 command+=['--host','127.0.0.1','--port','5173','--strictPort']

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { bubbleImages } from './assets';
+import { floatingCoversReady, onFloatingCovers, coverDiagnostics } from './assets';
 import type { ParticleFrame } from './scene';
 import { createFootball, footballEditions, footballPlayOrder } from './football';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -25,6 +25,8 @@ export class Planets {
   private rings=new THREE.Group();
   private orbitSprites:THREE.Sprite[]=[];
   private naturalMaps:THREE.Texture[]=[];
+  private pendingCovers=new Map<number,THREE.Texture>();
+  private coverSwapAges:number[]=Array(20).fill(1);
   private charmMaps:StickerPools={planet:[],stranger:[],football:[]};
   private ambient=new THREE.HemisphereLight(0xdde6ef,0x29292f,1.15);
   private light=new THREE.DirectionalLight(0xfff3e1,2.5);
@@ -101,7 +103,10 @@ export class Planets {
       ...maps.map(async(name,index)=>{this.textures[index]=await load(`/planets/${name}.jpg`);}),
       load('/planets/earth_nightmap.jpg').then(t=>this.night=t),load('/planets/earth-normal.jpg',false).then(t=>this.normal=t),load('/planets/earth-specular.jpg',false).then(t=>this.specular=t),
       load('/planets/earth_clouds.jpg',false).then(t=>{this.clouds.material.alphaMap=t;this.clouds.material.needsUpdate=true;}),load('/planets/saturn-ring.png').then(t=>this.ringMap=t),
-      ...bubbleImages.slice(0,20).map(async(path,i)=>{const texture=await load(path);this.naturalMaps[i]=texture;const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:true,depthWrite:false,alphaTest:.04,toneMapped:false}));sprite.layers.set(PORTRAIT_LAYER);sprite.renderOrder=2;sprite.userData.particle=i;sprite.visible=false;this.scene.add(sprite);this.orbitSprites[i]=sprite;}),
+      floatingCoversReady.then(({images})=>images.forEach((image,i)=>{
+        const texture=new THREE.Texture(image);texture.colorSpace=THREE.SRGBColorSpace;texture.needsUpdate=true;this.naturalMaps[i]=texture;
+        const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:true,depthWrite:false,alphaTest:.04,toneMapped:false}));sprite.layers.set(PORTRAIT_LAYER);sprite.renderOrder=2;sprite.userData.particle=i;sprite.visible=false;this.scene.add(sprite);this.orbitSprites[i]=sprite;
+      })),
       loadStickers().then(textures=>{this.charmMaps=textures;})
     ]).then(async()=>{
       this.select(this.index);
@@ -118,6 +123,14 @@ export class Planets {
       await this.warmFootball(footballPlayOrder[1]);
       await this.warmFootball(footballPlayOrder[2]);
     });this.select(2);
+    onFloatingCovers(({images})=>{
+      images.forEach((image,i)=>{
+        if(this.naturalMaps[i]?.image===image||this.pendingCovers.get(i)?.image===image)return;
+        this.pendingCovers.get(i)?.dispose();
+        const texture=new THREE.Texture(image);texture.colorSpace=THREE.SRGBColorSpace;texture.needsUpdate=true;
+        this.renderer?.initTexture(texture);this.pendingCovers.set(i,texture);this.coverSwapAges[i]=0;
+      });
+    });
   }
   private updateSurface(){
     const earth=this.index===2,sun=this.index===9;this.material.map=this.textures[this.index]??null;this.material.color.set(0xffffff);
@@ -298,10 +311,16 @@ export class Planets {
     this.group.rotation.z=THREE.MathUtils.lerp(.12,.08,landing);this.scene.environmentIntensity=day?.7:.58;if(this.index===2)this.material.emissiveIntensity=day?.35:.85;
     if(!reduced){this.rotation+=dt*.045;if(!this.footballTransition)this.body.rotation.y+=dt*.045;this.clouds.rotation.y=this.body.rotation.y+this.rotation*.08;this.rings.rotation.y+=dt*.008;this.orbitAngle+=dt*.11;const rotating=this.keepsake?.userData.rotating??this.keepsake;if(rotating&&!this.footballTransition)rotating.rotation.y+=dt*.08;}
     if(!this.footballTransition)this.rings.children.forEach(c=>{(c as THREE.Mesh<THREE.RingGeometry,THREE.MeshPhongMaterial>).material.opacity=(this.index===5?.85:.22)*(1-smooth(Math.min(1,orbitMix*2)));});
+    const coverOpacity=this.coverSwapAges.map((age,i)=>{
+      age=this.coverSwapAges[i]=Math.min(1,age+dt);
+      const pending=this.pendingCovers.get(i);
+      if(pending&&age>=.3){const old=this.naturalMaps[i];this.naturalMaps[i]=pending;this.orbitSprites[i].material.map=pending;this.pendingCovers.delete(i);old?.dispose();}
+      return age<.3?1-smooth(age/.3):smooth(Math.min(1,(age-.3)/.3));
+    });
     const count=this.orbitSprites.length,blend=smooth(orbitMix);
     this.orbitSprites.forEach((sprite,i)=>{const p=particles[i],slot=portraitOrbit(i/count*Math.PI*2+this.orbitAngle);const orbital=this.orbitalPosition.set(slot.x,slot.y,slot.z);const natural=this.naturalPosition.set(((p?.x??x)-w/2)/radius,(h/2-(p?.y??y))/radius,-2).sub(this.group.position);
       // Keep one sprite on a continuous exterior arc for both gathering and release.
-      orbitApproach(natural,orbital,blend,sprite.position).add(this.group.position);sprite.visible=i<count&&mix>.5&&((!!p?.visible&&!reduced)||orbitMix>.005);sprite.material.opacity=1;sprite.userData.pop=Math.max(0,(sprite.userData.pop??0)-dt*1.8);const pop=1+Math.sin((sprite.userData.pop??0)*Math.PI)*.3;const size=THREE.MathUtils.lerp((p?.visible?p.size:0)/radius,slot.size,blend);sprite.scale.setScalar(Math.max(.001,size)*pop);
+      orbitApproach(natural,orbital,blend,sprite.position).add(this.group.position);sprite.visible=i<count&&mix>.5&&((!!p?.visible&&!reduced)||orbitMix>.005);sprite.material.opacity=coverOpacity[i]??1;sprite.userData.pop=Math.max(0,(sprite.userData.pop??0)-dt*1.8);const pop=1+Math.sin((sprite.userData.pop??0)*Math.PI)*.3;const size=THREE.MathUtils.lerp((p?.visible?p.size:0)/radius,slot.size,blend);sprite.scale.setScalar(Math.max(.001,size)*pop);
     });
     for(const b of [...this.bursts]){
       b.age+=dt;if(b.age<0)continue;if(b.age>b.life){this.removeBurst(b);continue;}
@@ -322,5 +341,5 @@ export class Planets {
   }
   get available(){return !!this.renderer&&!this.lost;}
   get objectName(){const edition=footballEditions[this.footballIndex];return this.mode==='planet'?planetNames[this.index]:`${edition.year} ${edition.name}`;}
-  get diagnostics(){const visible=this.orbitSprites.filter(s=>s.visible),depths=visible.map(s=>s.position.z);return {renderer:this.available?'threejs':'fallback',name:this.objectName,mode:this.mode,index:this.index,rotation:this.rotation,ready:!!this.night,loadedSurfaces:this.textures.filter(Boolean).length,modelStyle:'textured',warmedPlanets:[...this.warmedPlanets],surfaceTexture:(this.material.map?.image as HTMLImageElement|undefined)?.src?.split('/').pop()??null,glass:this.glass.diagnostics,footballYears:footballPlayOrder.map(i=>footballEditions[i].year),orbitAngle:this.orbitAngle,orbitCount:visible.length,orbitDepth:[Math.min(...depths),Math.max(...depths)],depthTest:this.orbitSprites.every(s=>s.material.depthTest),orbitMix:this.orbitMix,footballCount:footballEditions.length,bursts:this.bursts.length,stickersLoaded:Object.values(this.charmMaps).reduce((n,p)=>n+p.length,0),stickerPools:Object.fromEntries(Object.entries(this.charmMaps).map(([k,v])=>[k,v.length])),lastBurst:this.lastBurst,stickerMotion:this.bursts.map(b=>({age:b.age,life:b.life,x:b.sprite.position.x,y:b.sprite.position.y,opacity:b.sprite.material.opacity})),orbitPortraits:visible.map(s=>({x:s.position.x-this.group.position.x,y:s.position.y-this.group.position.y,z:s.position.z,size:s.scale.x})),surfaceMix:this.surfaceMix,surfaceScale:this.group.scale.x,footballTransition:this.footballTransition?.diagnostics??null,pendingFootball:this.pendingFootball,footballCache:this.footballCache.size,lastFootballClickMs:this.lastFootballClickMs,maintenance:{...this.maintenance},renderPose:{targetWorld:(this.footballTransition?.target??this.keepsake)?.matrixWorld.elements.slice()??null,ambient:this.ambient.intensity,light:this.light.intensity,tilt:this.group.rotation.z},shaderPrograms:this.renderer?.info.programs?.length,particlePositions:visible.slice(0,3).map(s=>({x:s.position.x,y:s.position.y,z:s.position.z,opacity:s.material.opacity}))};}
+  get diagnostics(){const visible=this.orbitSprites.filter(s=>s.visible),depths=visible.map(s=>s.position.z);return {covers:coverDiagnostics(),renderer:this.available?'threejs':'fallback',name:this.objectName,mode:this.mode,index:this.index,rotation:this.rotation,ready:!!this.night,loadedSurfaces:this.textures.filter(Boolean).length,modelStyle:'textured',warmedPlanets:[...this.warmedPlanets],surfaceTexture:(this.material.map?.image as HTMLImageElement|undefined)?.src?.split('/').pop()??null,glass:this.glass.diagnostics,footballYears:footballPlayOrder.map(i=>footballEditions[i].year),orbitAngle:this.orbitAngle,orbitCount:visible.length,orbitDepth:[Math.min(...depths),Math.max(...depths)],depthTest:this.orbitSprites.every(s=>s.material.depthTest),orbitMix:this.orbitMix,footballCount:footballEditions.length,bursts:this.bursts.length,stickersLoaded:Object.values(this.charmMaps).reduce((n,p)=>n+p.length,0),stickerPools:Object.fromEntries(Object.entries(this.charmMaps).map(([k,v])=>[k,v.length])),lastBurst:this.lastBurst,stickerMotion:this.bursts.map(b=>({age:b.age,life:b.life,x:b.sprite.position.x,y:b.sprite.position.y,opacity:b.sprite.material.opacity})),orbitPortraits:visible.map(s=>({x:s.position.x-this.group.position.x,y:s.position.y-this.group.position.y,z:s.position.z,size:s.scale.x})),surfaceMix:this.surfaceMix,surfaceScale:this.group.scale.x,footballTransition:this.footballTransition?.diagnostics??null,pendingFootball:this.pendingFootball,footballCache:this.footballCache.size,lastFootballClickMs:this.lastFootballClickMs,maintenance:{...this.maintenance},renderPose:{targetWorld:(this.footballTransition?.target??this.keepsake)?.matrixWorld.elements.slice()??null,ambient:this.ambient.intensity,light:this.light.intensity,tilt:this.group.rotation.z},shaderPrograms:this.renderer?.info.programs?.length,particlePositions:visible.slice(0,3).map(s=>({x:s.position.x,y:s.position.y,z:s.position.z,opacity:s.material.opacity}))};}
 }

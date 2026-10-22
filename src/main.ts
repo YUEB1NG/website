@@ -1,3 +1,4 @@
+import { startCoverUpdates } from './assets';
 import './style.css';
 import { Scene } from './scene';
 import { Blueprint } from './blueprint';
@@ -17,7 +18,7 @@ const caption=$('#object-caption');
 let planetIndex=2,hasEntered=false,queuedEntry=false,nameUnlocked=false,wordUnlocked=false;
 let orbit=false,holdTimer:ReturnType<typeof setTimeout>|undefined,held=false;
 function clearHold(){if(holdTimer!==undefined)clearTimeout(holdTimer);holdTimer=undefined;}
-function toggleOrbit(){orbit=!orbit;orb.setAttribute('aria-pressed',String(orbit));status.textContent=orbit?'Avatars gathered into an orbit. Long press again to release.':'Avatars released.';}
+function toggleOrbit(){orbit=!orbit;orb.setAttribute('aria-pressed',String(orbit));status.textContent=orbit?'Song covers gathered into an orbit. Long press again to release.':'Song covers released.';}
 let textOffset=67.2;
 const textTarget=()=>Math.min(height*.55+textOffset,height-180);
 const nameCycle=new RandomNameCycle();
@@ -189,6 +190,6 @@ resize();
 await Promise.all([document.fonts.ready,scene.ready,planets.ready]);
 resize();
 if(!reduced){app.inert=true;blueprint.start();}else{app.dataset.state='rest';$('#blueprint').hidden=true;}
-last=performance.now();requestAnimationFrame(tick);
+last=performance.now();requestAnimationFrame(tick);startCoverUpdates();
 // Read-only diagnostics used by the browser smoke check.
 Object.defineProperty(window,'wabi',{value:{get state(){return app.dataset.state},get orbit(){return orbit},get renderer(){return scene.renderer},get earth(){return planets.diagnostics},get planet(){return planets.diagnostics},get theme(){return document.documentElement.dataset.theme},get position(){return {x,y,radius:200-150*clamp((height-y)/(height*.6),0,1)}}},writable:false});

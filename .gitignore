@@ -4,3 +4,9 @@ dist/
 reference/
 artifacts/
 *.log
+
+.wrangler/
+.sites-runtime/
+.dev.vars*
+
+outputs/

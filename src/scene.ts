@@ -1,5 +1,5 @@
 import { prismFragment } from './prism';
-import { bubbleImages } from './assets';
+import { floatingCoversReady, onFloatingCovers } from './assets';
 
 
 const vertex = `attribute vec2 a_position; void main(){gl_Position=vec4(a_position,0.,1.);}`;
@@ -36,11 +36,13 @@ export class Scene {
 
   constructor(private canvas:HTMLCanvasElement) {
     this.gl=canvas.getContext('webgl',{alpha:false,antialias:false,powerPreference:'low-power',preserveDrawingBuffer:true});
-    this.ready=Promise.all([...bubbleImages.slice(0,20).map((src,index)=>new Promise<void>(resolve=>{
-      const image=new Image(); image.onload=()=>resolve(); image.onerror=()=>resolve(); image.src=src;
-      this.particles.push({image,progress:0,delay:index*200,speed:.00028*(.5+Math.random()*1.3),x:0,y:0,endX:0,endY:0});
-      this.particleFrames.push({x:0,y:0,size:0,visible:false});
-    }))]);
+    this.ready=floatingCoversReady.then(({images})=>{
+      images.forEach((image,index)=>{
+        this.particles.push({image,progress:0,delay:index*200,speed:.00028*(.5+Math.random()*1.3),x:0,y:0,endX:0,endY:0});
+        this.particleFrames.push({x:0,y:0,size:0,visible:false});
+      });
+    });
+    onFloatingCovers(({images})=>this.particles.forEach((p,i)=>p.image=images[i]));
     try { if(this.gl) this.initialize(); else this.enableFallback(); }
     catch(error){console.error('Wabi WebGL initialization:',error); this.gl=null;this.enableFallback();}
     canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.lost=true;this.enableFallback();});
