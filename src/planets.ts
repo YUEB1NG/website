@@ -123,12 +123,14 @@ export class Planets {
       await this.warmFootball(footballPlayOrder[1]);
       await this.warmFootball(footballPlayOrder[2]);
     });this.select(2);
-    onFloatingCovers(({images})=>{
+    onFloatingCovers(({images,birth})=>{
       images.forEach((image,i)=>{
         if(this.naturalMaps[i]?.image===image||this.pendingCovers.get(i)?.image===image)return;
         this.pendingCovers.get(i)?.dispose();
         const texture=new THREE.Texture(image);texture.colorSpace=THREE.SRGBColorSpace;texture.needsUpdate=true;
-        this.renderer?.initTexture(texture);this.pendingCovers.set(i,texture);this.coverSwapAges[i]=0;
+        this.renderer?.initTexture(texture);
+        if(birth===i){const old=this.naturalMaps[i];this.naturalMaps[i]=texture;this.orbitSprites[i].material.map=texture;this.pendingCovers.delete(i);this.coverSwapAges[i]=1;old?.dispose();}
+        else{this.pendingCovers.set(i,texture);this.coverSwapAges[i]=0;}
       });
     });
   }

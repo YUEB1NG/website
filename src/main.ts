@@ -1,4 +1,4 @@
-import { startCoverUpdates } from './assets';
+import { startCoverUpdates, setCoverOrbitMode } from './assets';
 import { entranceState } from './entrance';
 import './style.css';
 import { Scene } from './scene';
@@ -19,7 +19,7 @@ const caption=$('#object-caption');
 let planetIndex=2,hasEntered=false,queuedEntry=false,nameUnlocked=false,wordUnlocked=false;
 let orbit=false,holdTimer:ReturnType<typeof setTimeout>|undefined,held=false;
 function clearHold(){if(holdTimer!==undefined)clearTimeout(holdTimer);holdTimer=undefined;}
-function toggleOrbit(){orbit=!orbit;orb.setAttribute('aria-pressed',String(orbit));status.textContent=orbit?'Song covers gathered into an orbit. Long press again to release.':'Song covers released.';}
+function toggleOrbit(){orbit=!orbit;setCoverOrbitMode(orbit);orb.setAttribute('aria-pressed',String(orbit));status.textContent=orbit?'Song covers gathered into an orbit. Long press again to release.':'Song covers released.';}
 let textOffset=67.2;
 const textTarget=()=>Math.min(height*.55+textOffset,height-180);
 const nameCycle=new RandomNameCycle();
@@ -49,7 +49,7 @@ function setActive(next:boolean){
   active=next;targetY=next?height*.4:height;targetX=width/2;
   app.dataset.state=next?'revealed':'rest';orb.setAttribute('aria-label',next?`${planetNames[planetIndex]}. Click to return to the transparent ring`:`Transparent ring. Click to discover ${planetNames[hasEntered?(planetIndex+1)%planetNames.length:2]}`);
   orb.title=next?'Click: transparent ring · Long press or O: gather into orbit':'Click to discover the next planet';
-  if(!next){orbit=false;orb.setAttribute('aria-pressed','false');clearHold();planets.cancelFootball();}
+  if(!next){orbit=false;setCoverOrbitMode(false);orb.setAttribute('aria-pressed','false');clearHold();planets.cancelFootball();}
   $('#back').setAttribute('aria-label',next?'Back to start':'Replay opening animation');
   $('#back').setAttribute('title',next?'Back to start':'Replay opening animation');
   if(changed){entryAge=0;socialAlpha=0;wordStarted=0;flipIndex=0;setWord(words[0]);resetName();wordUnlocked=false;resetReveals();}

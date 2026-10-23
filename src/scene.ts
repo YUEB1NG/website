@@ -1,5 +1,5 @@
 import { prismFragment } from './prism';
-import { floatingCoversReady, onFloatingCovers } from './assets';
+import { floatingCoversReady, onFloatingCovers, refreshCoverSlot } from './assets';
 
 
 const vertex = `attribute vec2 a_position; void main(){gl_Position=vec4(a_position,0.,1.);}`;
@@ -102,7 +102,7 @@ export class Scene {
       if(this.orbitMix<.001&&(this.elapsed<1500+p.delay||(!frame.active&&p.progress===0)))continue;
       if(!frame.reduced)p.progress+=p.speed*frame.dt*1000;
       if(this.orbitMix>.001)p.progress=Math.min(p.progress,1.15);
-      if(p.progress>=1&&this.orbitMix<.001){if(frame.active)this.reset(p);else continue;}
+      if(p.progress>=1&&this.orbitMix<.001){if(frame.active){this.reset(p);refreshCoverSlot(i);}else continue;}
       const t=p.progress,scale=Math.min(1,t/.3),size=48*scale;
       const x=p.x+(p.endX-p.x)*t+35-size/2+frame.tiltX*frame.radius;
       const y=p.y+(p.endY-p.y)*t+35-size/2+Math.min(frame.tiltY*frame.radius,0);

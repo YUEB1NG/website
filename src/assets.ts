@@ -1,13 +1,18 @@
 import fallback from './cover-fallback.json';
+import { CoverPicker, coverKey, type Cover } from './cover-picker';
 export const COVER_SLOTS=24;
-type Cover={id:number;name:string;src:string;coverKey:string};
-type CoverSet={images:HTMLImageElement[];songs:Cover[];updatedAt:string};
+type CoverSet={images:HTMLImageElement[];songs:Cover[];updatedAt:string;birth?:number};
 const listeners=new Set<(set:CoverSet)=>void>();
-const local=new Map(fallback.map(s=>[s.coverKey,s.src]));
+const local=new Map(fallback.map(s=>[coverKey(s),s.src]));
 const cache=new Map<string,Promise<HTMLImageElement>>();
-let pool:Cover[]=fallback,current:CoverSet,cursor=COVER_SLOTS,slot=0,checking=false,rotating=false,started=false;
+const historyKey='yueb1ng-cover-history';
+function readHistory():string[]{try{const a=JSON.parse(localStorage.getItem(historyKey)??'[]');return Array.isArray(a)?a.filter(x=>typeof x==='string').slice(-55):[];}catch{return [];}}
+let pool:Cover[]=fallback,current:CoverSet,slot=0,checking=false,started=false,orbit=false,loading=0,epoch=0;
+const picker=new CoverPicker(pool,readHistory()),reserved=new Set<string>();
+let ready:{song:Cover;image:HTMLImageElement}[]=[];
+function remember(song:Cover){picker.shown(song);try{localStorage.setItem(historyKey,JSON.stringify(picker.history));}catch{/* Private browsing can disable storage. */}}
 async function coverImage(cover:Cover):Promise<HTMLImageElement>{
- const key=cover.coverKey;
+ const key=coverKey(cover);
  const hit=cache.get(key);if(hit){cache.delete(key);cache.set(key,hit);return hit;}
  const result=(async()=>{
   const image=new Image();image.crossOrigin='anonymous';
@@ -16,26 +21,36 @@ async function coverImage(cover:Cover):Promise<HTMLImageElement>{
   c.beginPath();c.arc(80,80,78,0,Math.PI*2);c.clip();const scale=Math.max(160/image.width,160/image.height);c.drawImage(image,(160-image.width*scale)/2,(160-image.height*scale)/2,image.width*scale,image.height*scale);
   const rounded=new Image();rounded.src=canvas.toDataURL('image/png');await rounded.decode();return rounded;
  })();
- cache.set(key,result);while(cache.size>48)cache.delete(cache.keys().next().value!);
+ cache.set(key,result);while(cache.size>64)cache.delete(cache.keys().next().value!);
  result.catch(()=>cache.delete(key));return result;
 }
-// Every song remains in the pool, including songs sharing an album cover.
-// A small fixed set of sprites is resident, with bounded image/texture memory.
+
+// Prepare a small decoded queue; keep the original motion and 24 visible slots.
 export const floatingCoversReady=(async()=>{
- const songs=Array.from({length:COVER_SLOTS},(_,i)=>pool[i%pool.length]);
- const images=await Promise.all(songs.map(coverImage));current={images,songs,updatedAt:''};return current;
+ const songs:Cover[]=[],used=new Set<string>(picker.uniqueCount>=picker.history.length+COVER_SLOTS?picker.history:[]);
+ for(let i=0;i<Math.min(COVER_SLOTS,picker.uniqueCount);i++){const song=picker.take(used);if(!song)break;songs.push(song);used.add(coverKey(song));remember(song);}
+ const images=await Promise.all(songs.map(coverImage));current={images,songs,updatedAt:''};
+ fillQueue();return current;
 })();
 export function onFloatingCovers(listener:(set:CoverSet)=>void){listeners.add(listener);}
-async function rotateCover(){
- if(rotating||document.hidden)return;rotating=true;
- try{
-  await floatingCoversReady;const song=pool[cursor%pool.length];cursor=(cursor+1)%pool.length;
-  const image=await coverImage(song),i=slot++%current.songs.length;
-  const images=[...current.images],songs=[...current.songs];images[i]=image;songs[i]=song;
-  current={...current,images,songs};listeners.forEach(listener=>listener(current));
-  // Decode upcoming covers before their turn; never upload 130 GPU textures together.
-  for(let next=0;next<3;next++)void coverImage(pool[(cursor+next)%pool.length]).catch(()=>{});
- }catch{/* Keep the displayed cover if the replacement failed. */}finally{rotating=false;}
+export function setCoverOrbitMode(value:boolean){orbit=value;}
+function fillQueue(){
+ if(!current||document.hidden)return;
+ while(ready.length+loading<8&&loading<3){
+  const song=picker.take(new Set([...current.songs.map(coverKey),...reserved]));if(!song)break;
+  const key=coverKey(song),generation=epoch;reserved.add(key);loading++;
+  void coverImage(song).then(image=>{if(generation===epoch)ready.push({song,image});}).catch(()=>{}).finally(()=>{
+   loading--;if(generation===epoch&&!ready.some(c=>coverKey(c.song)===key))reserved.delete(key);
+   // A network failure must not start an unbounded retry loop.
+  });
+ }
+}
+export function refreshCoverSlot(index:number,birth=true){
+ if(!current||document.hidden)return;
+ const next=ready.shift();if(!next){fillQueue();return;}
+ reserved.delete(coverKey(next.song));
+ const images=[...current.images],songs=[...current.songs];images[index]=next.image;songs[index]=next.song;
+ remember(next.song);current={...current,images,songs,birth:birth?index:undefined};listeners.forEach(listener=>listener(current));fillQueue();
 }
 export async function syncFloatingCovers(){
  if(checking)return;checking=true;
@@ -45,13 +60,16 @@ export async function syncFloatingCovers(){
   const seen=new Set<number>(),songs:Cover[]=[];
   for(const s of data.songs){if(!Number.isSafeInteger(s.id)||s.src!==`/api/covers/${s.id}`||typeof s.coverKey!=='string'||seen.has(s.id))continue;seen.add(s.id);songs.push(s);}
   if(songs.length!==data.total)return;
-  const nextId=pool[cursor%pool.length]?.id;pool=songs;cursor=Math.max(0,pool.findIndex(s=>s.id===nextId));current.updatedAt=data.updatedAt;
+  const changed=songs.length!==pool.length||songs.some((s,i)=>s.id!==pool[i]?.id||coverKey(s)!==coverKey(pool[i]));
+  pool=songs;current.updatedAt=data.updatedAt;
+  if(changed){epoch++;ready=[];reserved.clear();picker.update(pool);fillQueue();}
  }catch{/* Keep the complete saved pool when the service is unavailable. */}finally{checking=false;}
 }
 export function startCoverUpdates(){
  if(started)return;started=true;void syncFloatingCovers();
- setInterval(()=>void rotateCover(),2800);
+ setInterval(fillQueue,800);
+ setInterval(()=>{if(orbit&&current)refreshCoverSlot(slot++%current.songs.length,false);},2800);
  setInterval(()=>{if(!document.hidden)void syncFloatingCovers()},60*60*1000);
- document.addEventListener('visibilitychange',()=>{if(!document.hidden)void syncFloatingCovers()});
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden){void syncFloatingCovers();fillQueue();}});
 }
-export function coverDiagnostics(){return current?{source:'netease-playlist',playlistId:'7592316248',updatedAt:current.updatedAt,ids:current.songs.map(s=>s.id),poolIds:pool.map(s=>s.id),poolCount:pool.length,visibleSlots:current.images.length,cachedImages:cache.size}:null;}
+export function coverDiagnostics(){return current?{source:'netease-playlist',playlistId:'7592316248',updatedAt:current.updatedAt,ids:current.songs.map(s=>s.id),coverKeys:current.songs.map(coverKey),poolIds:pool.map(s=>s.id),poolCount:pool.length,uniqueCovers:picker.uniqueCount,visibleSlots:current.images.length,cachedImages:cache.size,prepared:ready.length,recent:picker.history}:null;}
