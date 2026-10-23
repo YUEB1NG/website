@@ -38,7 +38,7 @@ export class Scene {
     this.gl=canvas.getContext('webgl',{alpha:false,antialias:false,powerPreference:'low-power',preserveDrawingBuffer:true});
     this.ready=floatingCoversReady.then(({images})=>{
       images.forEach((image,index)=>{
-        this.particles.push({image,progress:0,delay:index*200,speed:.00028*(.5+Math.random()*1.3),x:0,y:0,endX:0,endY:0});
+        this.particles.push({image,progress:0,delay:index*200,speed:.000252*(.5+Math.random()*1.3),x:0,y:0,endX:0,endY:0});
         this.particleFrames.push({x:0,y:0,size:0,visible:false});
       });
     });
