@@ -3,7 +3,7 @@
 Site: appgprj_6acf7c0a671481918912bc823c053aab
 Playlist: https://music.163.com/playlist?id=7592316248
 
-All tracks participate in the cover pool. Twenty sprites are prepared for the requested orbit interaction. Free floating is limited to six on phones and eight on desktop; each independent flight lasts 11-14 seconds, with staggered releases and no new emissions while dragging. A shuffled full-playlist deck replaces each departing flight with a new cover, excludes visible or loading artwork, and avoids recent repeats. Songs sharing album art remain eligible but cannot appear together. The orbit refreshes gradually while held. Decoded-image and GPU memory stay bounded. The profile portrait is unchanged.
+All tracks participate in the cover pool. Twenty sprites are prepared for the requested orbit interaction. Free floating density drifts between six and ten covers. Each independent flight uses a random 24-38 pixel size and a gentle 15-23 pixels/second upward speed, with staggered releases and no new emissions while dragging. Lower density takes effect as existing covers finish, without abruptly removing them. A shuffled full-playlist deck replaces each departing flight with a new cover, excludes visible or loading artwork, and avoids recent repeats. Songs sharing album art remain eligible but cannot appear together. The orbit refreshes gradually while held. Decoded-image and GPU memory stay bounded. The profile portrait is unchanged.
 
 ## Cloud updater
 1. Read the linked Site with Sites get_site. Use its current_live_url and existing siwc_bypass_bearer_token in memory. Never rotate, persist, print, or include the token in a URL.
