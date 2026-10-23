@@ -1,6 +1,6 @@
 import fallback from './cover-fallback.json';
 import { CoverPicker, coverKey, type Cover } from './cover-picker';
-export const COVER_SLOTS=24;
+export const COVER_SLOTS=20+Math.floor(Math.random()*10);
 type CoverSet={images:HTMLImageElement[];songs:Cover[];updatedAt:string;birth?:number};
 const listeners=new Set<(set:CoverSet)=>void>();
 const local=new Map(fallback.map(s=>[coverKey(s),s.src]));
@@ -25,7 +25,7 @@ async function coverImage(cover:Cover):Promise<HTMLImageElement>{
  result.catch(()=>cache.delete(key));return result;
 }
 
-// Prepare a small decoded queue; keep the original motion and 24 visible slots.
+// Prepare a small decoded queue; keep the original motion and a random 20-29 display slots per visit.
 export const floatingCoversReady=(async()=>{
  const songs:Cover[]=[],used=new Set<string>(picker.uniqueCount>=picker.history.length+COVER_SLOTS?picker.history:[]);
  for(let i=0;i<Math.min(COVER_SLOTS,picker.uniqueCount);i++){const song=picker.take(used);if(!song)break;songs.push(song);used.add(coverKey(song));remember(song);}

@@ -5,12 +5,12 @@ def run(*args):
 
 def js(code):return json.loads(run('eval','--json','-b',base64.b64encode(code.encode()).decode()))['data']['result']
 run('open','http://127.0.0.1:5173/');run('wait','--fn',"wabi.state==='rest'");run('click','#start');run('wait','--fn','wabi.position.radius<50.1')
-js("""(()=>{let last=[...wabi.planet.covers.coverKeys],recent=[...wabi.planet.covers.recent],duplicates=0,repeats=0,changes=0,maxCache=0;const seen=new Set(last),start=performance.now();window.randomCoverCheck=null;function sample(){const c=wabi.planet.covers;if(new Set(c.coverKeys).size!==24)duplicates++;c.coverKeys.forEach((key,i)=>{if(key!==last[i]){if(recent.includes(key))repeats++;recent=[...recent.filter(k=>k!==key),key].slice(-55);changes++;seen.add(key);}});last=[...c.coverKeys];maxCache=Math.max(maxCache,c.cachedImages);if(performance.now()-start<20000)requestAnimationFrame(sample);else window.randomCoverCheck={duplicates,repeats,changes,unique:seen.size,maxCache,slots:c.visibleSlots,pool:c.poolCount,artworks:c.uniqueCovers}}sample();return true})()""")
+js("""(()=>{let last=[...wabi.planet.covers.coverKeys],recent=[...wabi.planet.covers.recent],duplicates=0,repeats=0,changes=0,maxCache=0;const seen=new Set(last),start=performance.now();window.randomCoverCheck=null;function sample(){const c=wabi.planet.covers;if(new Set(c.coverKeys).size!==c.visibleSlots)duplicates++;c.coverKeys.forEach((key,i)=>{if(key!==last[i]){if(recent.includes(key))repeats++;recent=[...recent.filter(k=>k!==key),key].slice(-55);changes++;seen.add(key);}});last=[...c.coverKeys];maxCache=Math.max(maxCache,c.cachedImages);if(performance.now()-start<20000)requestAnimationFrame(sample);else window.randomCoverCheck={duplicates,repeats,changes,unique:seen.size,maxCache,slots:c.visibleSlots,pool:c.poolCount,artworks:c.uniqueCovers}}sample();return true})()""")
 run('wait','12000');run('wait','10000');result=js('window.randomCoverCheck')
-assert result['duplicates']==0 and result['repeats']==0 and result['unique']>=55 and result['slots']==24 and result['maxCache']<=64,result
+assert result['duplicates']==0 and result['repeats']==0 and result['unique']>=55 and 20<=result['slots']<=29 and result['maxCache']<=64,result
 run('press','Escape')
 history=js("JSON.parse(localStorage.getItem('yueb1ng-cover-history'))")
 run('reload');run('wait','--fn',"wabi.state==='rest'");keys=js('wabi.planet.covers.coverKeys');assert not set(history)&set(keys),(history,keys)
-run('click','#start');run('wait','--fn','wabi.position.radius<50.1');run('press','o');run('wait','2500');assert js('wabi.planet.orbitCount')==24
+run('click','#start');run('wait','--fn','wabi.position.radius<50.1');run('press','o');run('wait','2500');orbit_count=js('wabi.planet.orbitCount');assert 20<=orbit_count<=29
 run('screenshot',str(root/'artifacts/random-covers-mobile.png'));errors=run('errors');assert not errors.strip(),errors
-(root/'artifacts/random-covers-checks.json').write_text(json.dumps({'sampling':result,'reloadAvoidedRecent':True,'orbitCount':24},indent=2),encoding='utf-8');print('PASS',result,flush=True)
+(root/'artifacts/random-covers-checks.json').write_text(json.dumps({'sampling':result,'reloadAvoidedRecent':True,'orbitCount':orbit_count},indent=2),encoding='utf-8');print('PASS',result,flush=True)
