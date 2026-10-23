@@ -1,5 +1,5 @@
 import { prismFragment } from './prism';
-import { floatingCoversReady, onFloatingCovers, refreshCoverSlot } from './assets';
+import { floatingCoversReady, onFloatingCovers, refreshCoverSlot, setFreeCoverSlots } from './assets';
 
 
 const vertex = `attribute vec2 a_position; void main(){gl_Position=vec4(a_position,0.,1.);}`;
@@ -9,7 +9,7 @@ uniform vec2 resolution; uniform float time; uniform float pixelRatio; uniform s
 float hash12(vec2 p){vec3 p3=fract(vec3(p.x,p.y,p.x)*.1031);p3+=dot(p3,vec3(p3.y,p3.z,p3.x)+33.33);return fract((p3.x+p3.y)*p3.z);}
 void main(){vec2 p=vec2(gl_FragCoord.x,resolution.y-gl_FragCoord.y);vec2 q=p/pixelRatio;float d=pow(hash12(q),3.);float mult=.55+.45*(sin(.22*time+q.x+q.y)+1.)*.5;d=smoothstep(.99,1.,d)*mult;vec4 image=texture2D(layer,p/resolution);gl_FragColor=vec4(mix(mix(vec3(d),vec3(.957,.965,.98)-vec3(d*.12),day),image.rgb,image.a),1.);}`;
 
-type Particle = { image: HTMLImageElement; progress:number; delay:number; speed:number; x:number; y:number; endX:number; endY:number };
+type Particle = { image: HTMLImageElement; progress:number; speed:number;size:number;generation:number; x:number; y:number; endX:number; endY:number };
 export interface Frame { x:number; y:number; radius:number; active:boolean; time:number; dt:number; reduced:boolean; tiltX:number; tiltY:number; day:boolean; planetMix:number; orbit:boolean; threeParticles:boolean;dragging:boolean }
 export type ParticleFrame={x:number;y:number;size:number;opacity:number;visible:boolean};
 
@@ -26,7 +26,7 @@ export class Scene {
   private paint = document.createElement('canvas');
   private ctx = this.paint.getContext('2d')!;
   private width=1; private height=1; private ratio=1;
-  private elapsed=0; private active=false;
+  private elapsed=0; private active=false;private nextEmission=1600;private spawnCursor=0;private births=0;private wasOrbit=false;
   private orbitMix=0;
   private particles: Particle[]=[];
   readonly particleFrames:ParticleFrame[]=[];
@@ -37,8 +37,8 @@ export class Scene {
   constructor(private canvas:HTMLCanvasElement) {
     this.gl=canvas.getContext('webgl',{alpha:false,antialias:false,powerPreference:'low-power',preserveDrawingBuffer:true});
     this.ready=floatingCoversReady.then(({images})=>{
-      images.forEach((image,index)=>{
-        this.particles.push({image,progress:0,delay:index*200,speed:.00028*(.5+Math.random()*1.3),x:0,y:0,endX:0,endY:0});
+      images.forEach(image=>{
+        this.particles.push({image,progress:1,speed:1/13000,size:30,generation:0,x:0,y:0,endX:0,endY:0});
         this.particleFrames.push({x:0,y:0,size:0,opacity:0,visible:false});
       });
     });
@@ -81,36 +81,46 @@ export class Scene {
     this.canvas.width=w;this.canvas.height=h;this.paint.width=w;this.paint.height=h;
     const gl=this.gl;
     if(gl&&!this.lost){gl.viewport(0,0,w,h);gl.bindTexture(gl.TEXTURE_2D,this.source!);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,null);gl.bindFramebuffer(gl.FRAMEBUFFER,this.framebuffer!);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,this.source!,0);if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw new Error('Incomplete scene framebuffer');gl.bindFramebuffer(gl.FRAMEBUFFER,null);}
-    this.particles.forEach(p=>this.reset(p));
+
   }
-  private reset(p:Particle){
-    // Spawn across the upper hemisphere, in coordinates relative to the moving orb.
-    const angle=Math.PI+Math.random()*Math.PI;
-    p.x=Math.cos(angle)*.72;p.y=Math.sin(angle)*.72;
-    p.endX=(Math.random()-.5)*this.width*.85;
-    p.endY=-Math.max(220,this.height*.48)*(.75+Math.random()*.4);p.progress=0;
+  private spawn(p:Particle,frame:Frame,index:number){
+    // Snapshot the release point once. Flight paths never track the orb afterwards.
+    const angle=Math.PI*1.15+Math.random()*Math.PI*.7;
+    p.x=frame.x+Math.cos(angle)*frame.radius*.9;
+    p.y=frame.y+Math.sin(angle)*frame.radius*.8;
+    p.endX=(Math.random()-.5)*90;
+    p.endY=-Math.min(310,Math.max(210,this.height*.32))*(.9+Math.random()*.2);
+    p.speed=1/(11000+Math.random()*3000);p.size=(this.width<600?28:32)+Math.random()*4;p.progress=0;
+    if(p.generation++>0)refreshCoverSlot(index);this.births++;
   }
   render(frame:Frame){
     this.orbitMix=frame.reduced?(frame.orbit?1:0):this.orbitMix+((frame.orbit?1:0)-this.orbitMix)*(1-Math.exp(-frame.dt*1.6));
     if(this.fallback){Object.assign(this.fallback.style,{left:`${frame.x-frame.radius}px`,top:`${frame.y-frame.radius}px`,width:`${frame.radius*2}px`,height:`${frame.radius*2}px`});return;}
     const gl=this.gl!;if(this.lost)return;
-    if(frame.active&&!this.active){this.elapsed=0;this.particles.forEach(p=>this.reset(p));}
+    if(frame.active&&!this.active){this.elapsed=0;this.nextEmission=1600;this.particles.forEach(p=>p.progress=1);}
     this.active=frame.active;if(frame.active)this.elapsed+=frame.dt*1000;
+    const limit=Math.min(this.width<600?6:8,this.particles.length);if(limit)setFreeCoverSlots(limit);
+    if(this.wasOrbit&&!frame.orbit){this.particles.forEach(p=>p.progress=1);this.nextEmission=this.elapsed+1600;}
+    this.wasOrbit=frame.orbit;
+    if(frame.active&&!frame.reduced&&!frame.dragging&&!frame.orbit&&this.orbitMix<.005&&this.elapsed>=this.nextEmission){
+      for(let offset=0;offset<limit;offset++){
+        const index=(this.spawnCursor+offset)%limit,p=this.particles[index];
+        if(p.progress>=1){this.spawn(p,frame,index);this.spawnCursor=(index+1)%limit;break;}
+      }
+      // No catch-up bursts after dragging, tab suspension or orbit release.
+      this.nextEmission=this.elapsed+1900+Math.random()*500;
+    }
     const ctx=this.ctx;if(!frame.threeParticles)ctx.clearRect(0,0,this.paint.width,this.paint.height);ctx.save();ctx.scale(this.ratio,this.ratio);
     this.particleFrames.forEach(p=>p.visible=false);
-    if((!frame.reduced&&this.elapsed>=1500)||frame.orbit){for(const [i,p] of this.particles.entries()){
-      if(this.orbitMix<.001&&(this.elapsed<1500+p.delay||(!frame.active&&p.progress===0)))continue;
-      if(frame.dragging&&p.progress===0)continue;
-      if(!frame.reduced)p.progress+=p.speed*frame.dt*1000;
-      if(this.orbitMix>.001)p.progress=Math.min(p.progress,1.15);
-      if(p.progress>=1&&this.orbitMix<.001){if(frame.active&&!frame.dragging){this.reset(p);refreshCoverSlot(i);}else continue;}
-      const t=p.progress,scale=Math.min(1,t/.3),size=48*scale;
-      const x=frame.x+p.x*frame.radius+p.endX*t-size/2+frame.tiltX*frame.radius;
-      const y=frame.y+p.y*frame.radius+p.endY*t-size/2+Math.min(frame.tiltY*frame.radius,0);
-      const fade=Math.max(0,Math.min(1,(1-t)/.18));const opacity=fade*fade*(3-2*fade);
-      this.particleFrames[i]={x:x+size/2,y:y+size/2,size,opacity,visible:true};
-      if(!frame.threeParticles&&p.image.complete&&p.image.naturalWidth){ctx.globalAlpha=opacity;ctx.drawImage(p.image,x,y,size,size);ctx.globalAlpha=1;}
-    }}ctx.restore();
+    for(const [i,p] of this.particles.entries()){
+      if(frame.reduced||p.progress>=1)continue;
+      p.progress=Math.min(1,p.progress+p.speed*frame.dt*1000);
+      const t=p.progress,enter=Math.min(1,t/.09),exit=Math.max(0,Math.min(1,(1-t)/.22));
+      const opacity=.86*enter*enter*(3-2*enter)*exit*exit*(3-2*exit),size=p.size*(.94+.06*enter);
+      const x=p.x+p.endX*t,y=p.y+p.endY*t;
+      this.particleFrames[i]={x,y,size,opacity,visible:opacity>.001};
+      if(!frame.threeParticles&&p.image.complete&&p.image.naturalWidth){ctx.globalAlpha=opacity;ctx.drawImage(p.image,x-size/2,y-size/2,size,size);ctx.globalAlpha=1;}
+    }ctx.restore();
     const w=this.canvas.width,h=this.canvas.height,[base,prism]=this.programs;
     this.use(base);gl.bindFramebuffer(gl.FRAMEBUFFER,this.framebuffer!);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.layer!);if(!frame.threeParticles){gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,this.paint);this.uploadedParticleLayer=true;}
     else if(this.uploadedParticleLayer){gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,this.emptyPixel);this.uploadedParticleLayer=false;}
@@ -122,5 +132,6 @@ export class Scene {
     [[1,0,0],[1,1,0],[0,1,0],[0,1,1],[0,0,1],[1,0,1]].forEach((c,i)=>three(`u_prismColor${i}`,c[0],c[1],c[2]));gl.drawArrays(gl.TRIANGLES,0,6);
   }
   get orbitBlend(){return this.orbitMix;}
+  get diagnostics(){return {births:this.births,limit:this.width<600?6:8,particles:this.particleFrames.map((p,index)=>({...p,index})).filter(p=>p.visible)};}
   get renderer(){return this.fallback?'fallback':'webgl';}
 }

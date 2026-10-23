@@ -16,3 +16,16 @@ test('pending image reservations cannot pick identical albums',()=>{
  const deck=new CoverDeck(songs),blocked=new Set();
  for(let i=0;i<24;i++){const s=deck.take(blocked);assert.ok(s);assert.ok(!blocked.has(coverIdentity(s)));blocked.add(coverIdentity(s));}
 });
+
+test('sparse flights can use covers held in hidden orbit slots',()=>{
+ const deck=new CoverDeck(songs),slots=[],seen=new Set();
+ for(let i=0;i<20;i++)slots.push(deck.take(new Set(slots.map(coverIdentity))));
+ deck.update(songs);
+ for(let i=0;i<600;i++){
+  const index=i%6,s=deck.take(new Set(slots.slice(0,6).map(coverIdentity)));assert.ok(s);
+  const held=slots.findIndex(v=>coverIdentity(v)===coverIdentity(s));
+  if(held>=0)slots[held]=slots[index];slots[index]=s;seen.add(s.id);
+  assert.equal(new Set(slots.map(coverIdentity)).size,20);
+ }
+ assert.equal(seen.size,songs.length);
+});

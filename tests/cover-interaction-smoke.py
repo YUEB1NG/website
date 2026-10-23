@@ -4,19 +4,22 @@ def run(*args):
  r=subprocess.run([cli,*args],capture_output=True,text=True,encoding='utf-8',timeout=35);assert r.returncode==0,r.stdout+r.stderr;return r.stdout.strip()
 def js(code):return json.loads(run('eval','--json','-b',base64.b64encode(code.encode()).decode()))['data']['result']
 run('set','media','light');run('open','http://127.0.0.1:5173/');run('wait','--fn',"wabi.state==='rest'");run('snapshot');run('click','#start');run('wait','--fn','wabi.position.radius<50.1')
-result=js("""new Promise(resolve=>{const seen=new Set(),start=performance.now();let duplicates=0;function sample(){const c=wabi.planet.covers;c.ids.forEach(id=>seen.add(id));if(new Set(c.visibleCoverKeys).size!==c.visibleCoverKeys.length)duplicates++;if(performance.now()-start<12000)requestAnimationFrame(sample);else resolve({seen:seen.size,duplicates,cache:c.cachedImages,tracks:c.poolCount,unique:c.uniqueCovers})}sample()})""")
-assert result['duplicates']==0 and result['seen']>40 and result['cache']<=48,result
-print('PASS cover diversity',result,flush=True)
-run('press','o');run('wait','--fn','wabi.planet.orbitMix>.99');run('press','o');run('wait','--fn','wabi.planet.orbitMix<.001')
+result=js("""new Promise(resolve=>{const seen=new Set(),start=performance.now();let duplicates=0,maxVisible=0,maxSize=0;function sample(){const c=wabi.planet.covers;c.ids.forEach(id=>seen.add(id));if(new Set(c.visibleCoverKeys).size!==c.visibleCoverKeys.length)duplicates++;const particles=wabi.drift.particles;maxVisible=Math.max(maxVisible,particles.length);for(const p of particles)maxSize=Math.max(maxSize,p.size);if(performance.now()-start<20000)requestAnimationFrame(sample);else resolve({seen:seen.size,duplicates,maxVisible,maxSize,cache:c.cachedImages,tracks:c.poolCount,unique:c.uniqueCovers})}sample()})""")
+assert result['duplicates']==0 and result['seen']>20 and result['cache']<=48 and result['maxVisible']<=6 and result['maxSize']<=32,result
+print('PASS restrained cover drift',result,flush=True)
+run('screenshot',str(root/'artifacts/calm-mobile-day.png'))
 run('mouse','move','195','337');run('mouse','down');run('mouse','move','195','410')
 run('wait','--fn','wabi.position.y>370')
-before=js('({orb:wabi.position,points:wabi.planet.particlePositions})')
+before=js('({orb:wabi.position,points:wabi.drift.particles,births:wabi.drift.births})')
 run('mouse','move','195','530');run('wait','--fn','wabi.position.y>490')
-after=js('({orb:wabi.position,points:wabi.planet.particlePositions})')
+after=js('({orb:wabi.position,points:wabi.drift.particles,births:wabi.drift.births})')
 assert before['points'] and after['points']
-def ys(frame):return [422-p['y']*frame['orb']['radius'] for p in frame['points']]
-shift=sum(ys(after))/len(ys(after))-sum(ys(before))/len(ys(before))
-assert shift>30,{'before':before,'after':after,'shift':shift}
+common=[(a,b) for a in before['points'] for b in after['points'] if a['index']==b['index']]
+assert common
+shifts=[b['y']-a['y'] for a,b in common]
+assert all(-35<delta<=0 for delta in shifts),shifts
+assert before['births']==after['births'],(before['births'],after['births'])
+shift=sum(shifts)/len(shifts)
 run('mouse','up');run('press','Escape');run('wait','--fn','wabi.position.radius>199.9');run('click','#start');run('wait','--fn','wabi.position.radius<50.1')
 run('wait','--fn',"document.querySelector('#social').style.opacity>.9")
 style=[]
@@ -29,4 +32,4 @@ for theme in ['day','night']:
  run('mouse','move','10','10');run('mouse','up');style.append(pressed)
  print('PASS link feedback',theme,flush=True)
 (root/'artifacts/cover-interaction-checks.json').write_text(json.dumps({'covers':result,'dragShift':shift,'link':style},indent=2),encoding='utf-8')
-print('PASS moving cover source',shift,flush=True)
+print('PASS independent flights while orb is dragged',shift,flush=True)

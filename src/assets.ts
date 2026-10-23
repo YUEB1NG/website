@@ -4,7 +4,7 @@ type CoverSet={images:HTMLImageElement[];songs:Cover[];updatedAt:string};
 const listeners=new Set<(set:CoverSet)=>void>();
 const local=new Map(fallback.map(s=>[coverIdentity(s),s.src]));
 const cache=new Map<string,Promise<HTMLImageElement>>();
-let pool:Cover[]=fallback,current:CoverSet,slot=0,checking=false,started=false,lastFlight=0;
+let pool:Cover[]=fallback,current:CoverSet,slot=0,checking=false,started=false,coverOrbit=false,freeSlots=20;
 const deck=new CoverDeck(pool),reserved=new Set<string>(),pendingSlots=new Set<number>();
 let loading=0;
 async function coverImage(cover:Cover):Promise<HTMLImageElement>{
@@ -28,7 +28,7 @@ export const floatingCoversReady=(async()=>{
 })();
 export function onFloatingCovers(listener:(set:CoverSet)=>void){listeners.add(listener);}
 export function refreshCoverSlot(index:number){
- lastFlight=performance.now();queueCover(index);
+ queueCover(index);
 }
 function queueCover(index:number){
  if(!current||pendingSlots.has(index)||document.hidden)return;
@@ -36,12 +36,18 @@ function queueCover(index:number){
 }
 async function replaceCover(index:number){
  if(loading>=4){pendingSlots.delete(index);return;}
- const blocked=new Set([...current.songs.map(coverIdentity),...reserved]);
+ const blocked=new Set([...current.songs.filter((_,i)=>coverOrbit||i<freeSlots).map(coverIdentity),...reserved]);
  const song=deck.take(blocked);if(!song){pendingSlots.delete(index);return;}
  const key=coverIdentity(song);reserved.add(key);loading++;
  try{
-  const image=await coverImage(song);
-  const images=[...current.images],songs=[...current.songs];images[index]=image;songs[index]=song;
+  const held=current.songs.findIndex(s=>coverIdentity(s)===key);
+  const image=held>=0?current.images[held]:await coverImage(song);
+  const images=[...current.images],songs=[...current.songs];
+  // Reuse a hidden orbit slot by swapping, so it remains eligible for free flight
+  // without duplicating artwork when the orbit is opened later.
+  const other=songs.findIndex((s,i)=>i!==index&&coverIdentity(s)===key);
+  if(other>=0){images[other]=images[index];songs[other]=songs[index];}
+  images[index]=image;songs[index]=song;
   current={...current,images,songs};listeners.forEach(listener=>listener(current));
   for(const next of deck.peek(3))void coverImage(next).catch(()=>{});
  }catch{/* Keep the displayed cover if the replacement failed. */}
@@ -59,9 +65,11 @@ export async function syncFloatingCovers(){
   pool=songs;if(changed)deck.update(pool);current.updatedAt=data.updatedAt;
  }catch{/* Keep the complete saved pool when the service is unavailable. */}finally{checking=false;}
 }
+export function setFreeCoverSlots(value:number){if(freeSlots!==value){freeSlots=value;deck.update(pool);}}
+export function setCoverOrbitMode(value:boolean){coverOrbit=value;}
 export function startCoverUpdates(){
  if(started)return;started=true;void syncFloatingCovers();
- setInterval(()=>{if(current&&performance.now()-lastFlight>3500)queueCover(slot++%current.songs.length)},2800);
+ setInterval(()=>{if(current&&coverOrbit)queueCover(slot++%current.songs.length)},4600);
  setInterval(()=>{if(!document.hidden)void syncFloatingCovers()},60*60*1000);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void syncFloatingCovers()});
 }
