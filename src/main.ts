@@ -1,4 +1,4 @@
-import { startCoverUpdates, setCoverOrbitMode } from './assets';
+import { startCoverUpdates } from './assets';
 import { entranceState } from './entrance';
 import './style.css';
 import { Scene } from './scene';
@@ -19,14 +19,14 @@ const caption=$('#object-caption');
 let planetIndex=2,hasEntered=false,queuedEntry=false,nameUnlocked=false,wordUnlocked=false;
 let orbit=false,holdTimer:ReturnType<typeof setTimeout>|undefined,held=false;
 function clearHold(){if(holdTimer!==undefined)clearTimeout(holdTimer);holdTimer=undefined;}
-function toggleOrbit(){orbit=!orbit;setCoverOrbitMode(orbit);orb.setAttribute('aria-pressed',String(orbit));status.textContent=orbit?'Song covers gathered into an orbit. Long press again to release.':'Song covers released.';}
+function toggleOrbit(){orbit=!orbit;orb.setAttribute('aria-pressed',String(orbit));status.textContent=orbit?'Song covers gathered into an orbit. Long press again to release.':'Song covers released.';}
 let textOffset=67.2;
 const textTarget=()=>Math.min(height*.55+textOffset,height-180);
 const nameCycle=new RandomNameCycle();
 function resetName(){nameUnlocked=false;$('.english-name').style.opacity='1';$('.profile-name').style.opacity='0';$('.name-line').classList.remove('profile');$('.english-name').inert=false;$('.profile-name').setAttribute('aria-hidden','true');$('.profile-name').inert=true;const b=$('[data-reveal=name]');b.setAttribute('aria-expanded','false');$('#name-content').dataset.state='closed';}
 let width=innerWidth,height=innerHeight,x=width/2,y=height,targetX=x,targetY=y,vx=0,vy=0,textY=height,textV=0,active=false,dragging=false,reduced=media.matches;
 let last=performance.now(),elapsed=0,wordStarted=0,downX=0,downY=0,fromY=0,moved=false,tiltX=0,tiltY=0,smoothTiltX=0,smoothTiltY=0,pointer:number|null=null;
-let flipIndex=0,pressedOrb=false,coverHolding=false;
+let flipIndex=0,pressedOrb=false;
 const words=['Learn','Build','Share'];
 const flipWord=$('#flip-word');
 const blueprint=new Blueprint(()=>{app.dataset.state=active?'revealed':'rest';app.inert=false;syncTheme();status.textContent='Swipe up or press Enter to start.';});
@@ -49,7 +49,7 @@ function setActive(next:boolean){
   active=next;targetY=next?height*.4:height;targetX=width/2;
   app.dataset.state=next?'revealed':'rest';orb.setAttribute('aria-label',next?`${planetNames[planetIndex]}. Click to return to the transparent ring`:`Transparent ring. Click to discover ${planetNames[hasEntered?(planetIndex+1)%planetNames.length:2]}`);
   orb.title=next?'Click: transparent ring · Long press or O: gather into orbit':'Click to discover the next planet';
-  if(!next){orbit=false;setCoverOrbitMode(false);orb.setAttribute('aria-pressed','false');clearHold();planets.cancelFootball();}
+  if(!next){orbit=false;orb.setAttribute('aria-pressed','false');clearHold();planets.cancelFootball();}
   $('#back').setAttribute('aria-label',next?'Back to start':'Replay opening animation');
   $('#back').setAttribute('title',next?'Back to start':'Replay opening animation');
   if(changed){entryAge=0;socialAlpha=0;wordStarted=0;flipIndex=0;setWord(words[0]);resetName();wordUnlocked=false;resetReveals();}
@@ -182,11 +182,8 @@ function tick(now:number){
     planets.select(incoming);
     if(queuedEntry)setActive(true);
   }
-  // Keep covers pinned through the orb's spring return as well as the gesture.
-  if(dragging&&moved)coverHolding=true;
-  else if(!dragging&&Math.hypot(targetX-x,targetY-y)<1)coverHolding=false;
-  scene.render({x,y,radius,active:active&&!blueprint.active,time:elapsed,dt,reduced,tiltX:smoothTiltX,tiltY:smoothTiltY,day,planetMix,orbit,threeParticles:planets.available,dragging:dragging||coverHolding,holding:coverHolding});
-  planets.render(x,y,radius,planetMix,dt,reduced,day,scene.orbitBlend,scene.particleFrames,dragging,coverHolding);
+  scene.render({x,y,radius,active:active&&!blueprint.active,time:elapsed,dt,reduced,tiltX:smoothTiltX,tiltY:smoothTiltY,day,planetMix,orbit,threeParticles:planets.available});
+  planets.render(x,y,radius,planetMix,dt,reduced,day,scene.orbitBlend,scene.particleFrames,dragging);
   if(lastObjectName!==planets.objectName)syncObject();
   requestAnimationFrame(tick);
 }
@@ -198,4 +195,4 @@ resize();
 if(!reduced){app.inert=true;blueprint.start();}else{app.dataset.state='rest';$('#blueprint').hidden=true;}
 last=performance.now();requestAnimationFrame(tick);startCoverUpdates();
 // Read-only diagnostics used by the browser smoke check.
-Object.defineProperty(window,'wabi',{value:{get state(){return app.dataset.state},get orbit(){return orbit},get drift(){return scene.diagnostics},get renderer(){return scene.renderer},get earth(){return planets.diagnostics},get planet(){return planets.diagnostics},get theme(){return document.documentElement.dataset.theme},get position(){return {x,y,radius:200-150*clamp((height-y)/(height*.6),0,1)}}},writable:false});
+Object.defineProperty(window,'wabi',{value:{get state(){return app.dataset.state},get orbit(){return orbit},get renderer(){return scene.renderer},get earth(){return planets.diagnostics},get planet(){return planets.diagnostics},get theme(){return document.documentElement.dataset.theme},get position(){return {x,y,radius:200-150*clamp((height-y)/(height*.6),0,1)}}},writable:false});
