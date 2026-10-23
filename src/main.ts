@@ -26,7 +26,7 @@ const nameCycle=new RandomNameCycle();
 function resetName(){nameUnlocked=false;$('.english-name').style.opacity='1';$('.profile-name').style.opacity='0';$('.name-line').classList.remove('profile');$('.english-name').inert=false;$('.profile-name').setAttribute('aria-hidden','true');$('.profile-name').inert=true;const b=$('[data-reveal=name]');b.setAttribute('aria-expanded','false');$('#name-content').dataset.state='closed';}
 let width=innerWidth,height=innerHeight,x=width/2,y=height,targetX=x,targetY=y,vx=0,vy=0,textY=height,textV=0,active=false,dragging=false,reduced=media.matches;
 let last=performance.now(),elapsed=0,wordStarted=0,downX=0,downY=0,fromY=0,moved=false,tiltX=0,tiltY=0,smoothTiltX=0,smoothTiltY=0,pointer:number|null=null;
-let flipIndex=0,pressedOrb=false;
+let flipIndex=0,pressedOrb=false,coverHolding=false;
 const words=['Learn','Build','Share'];
 const flipWord=$('#flip-word');
 const blueprint=new Blueprint(()=>{app.dataset.state=active?'revealed':'rest';app.inert=false;syncTheme();status.textContent='Swipe up or press Enter to start.';});
@@ -182,8 +182,11 @@ function tick(now:number){
     planets.select(incoming);
     if(queuedEntry)setActive(true);
   }
-  scene.render({x,y,radius,active:active&&!blueprint.active,time:elapsed,dt,reduced,tiltX:smoothTiltX,tiltY:smoothTiltY,day,planetMix,orbit,threeParticles:planets.available,dragging});
-  planets.render(x,y,radius,planetMix,dt,reduced,day,scene.orbitBlend,scene.particleFrames,dragging);
+  // Keep covers pinned through the orb's spring return as well as the gesture.
+  if(dragging&&moved)coverHolding=true;
+  else if(!dragging&&Math.hypot(targetX-x,targetY-y)<1)coverHolding=false;
+  scene.render({x,y,radius,active:active&&!blueprint.active,time:elapsed,dt,reduced,tiltX:smoothTiltX,tiltY:smoothTiltY,day,planetMix,orbit,threeParticles:planets.available,dragging:dragging||coverHolding,holding:coverHolding});
+  planets.render(x,y,radius,planetMix,dt,reduced,day,scene.orbitBlend,scene.particleFrames,dragging,coverHolding);
   if(lastObjectName!==planets.objectName)syncObject();
   requestAnimationFrame(tick);
 }

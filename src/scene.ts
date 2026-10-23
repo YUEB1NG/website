@@ -10,7 +10,7 @@ float hash12(vec2 p){vec3 p3=fract(vec3(p.x,p.y,p.x)*.1031);p3+=dot(p3,vec3(p3.y
 void main(){vec2 p=vec2(gl_FragCoord.x,resolution.y-gl_FragCoord.y);vec2 q=p/pixelRatio;float d=pow(hash12(q),3.);float mult=.55+.45*(sin(.22*time+q.x+q.y)+1.)*.5;d=smoothstep(.99,1.,d)*mult;vec4 image=texture2D(layer,p/resolution);gl_FragColor=vec4(mix(mix(vec3(d),vec3(.957,.965,.98)-vec3(d*.12),day),image.rgb,image.a),1.);}`;
 
 type Particle = { image: HTMLImageElement; progress:number; speed:number;size:number;generation:number; x:number; y:number; endX:number; endY:number };
-export interface Frame { x:number; y:number; radius:number; active:boolean; time:number; dt:number; reduced:boolean; tiltX:number; tiltY:number; day:boolean; planetMix:number; orbit:boolean; threeParticles:boolean;dragging:boolean }
+export interface Frame { x:number; y:number; radius:number; active:boolean; time:number; dt:number; reduced:boolean; tiltX:number; tiltY:number; day:boolean; planetMix:number; orbit:boolean; threeParticles:boolean;dragging:boolean;holding:boolean }
 export type ParticleFrame={x:number;y:number;size:number;opacity:number;visible:boolean};
 
 export class Scene {
@@ -96,11 +96,11 @@ export class Scene {
     if(p.generation++>0)refreshCoverSlot(index);this.births++;
   }
   render(frame:Frame){
-    this.orbitMix=frame.reduced?(frame.orbit?1:0):this.orbitMix+((frame.orbit?1:0)-this.orbitMix)*(1-Math.exp(-frame.dt*1.6));
+    if(!frame.holding)this.orbitMix=frame.reduced?(frame.orbit?1:0):this.orbitMix+((frame.orbit?1:0)-this.orbitMix)*(1-Math.exp(-frame.dt*1.6));
     if(this.fallback){Object.assign(this.fallback.style,{left:`${frame.x-frame.radius}px`,top:`${frame.y-frame.radius}px`,width:`${frame.radius*2}px`,height:`${frame.radius*2}px`});return;}
     const gl=this.gl!;if(this.lost)return;
     if(frame.active&&!this.active){this.elapsed=0;this.nextEmission=1600;this.densityAt=0;this.particles.forEach(p=>p.progress=1);}
-    this.active=frame.active;if(frame.active)this.elapsed+=frame.dt*1000;
+    this.active=frame.active;if(frame.active&&!frame.holding)this.elapsed+=frame.dt*1000;
     const limit=Math.min(10,this.particles.length);if(limit)setFreeCoverSlots(limit);
     if(frame.active&&!frame.dragging&&!frame.orbit&&this.elapsed>=this.densityAt){
       let next=6+Math.floor(Math.random()*5);if(next===this.density)next=6+(next-5)%5;
@@ -124,7 +124,7 @@ export class Scene {
     });
     for(const [i,p] of this.particles.entries()){
       if(frame.reduced||p.progress>=1)continue;
-      p.progress=Math.min(1,p.progress+p.speed*frame.dt*1000);
+      if(!frame.holding)p.progress=Math.min(1,p.progress+p.speed*frame.dt*1000);
       const t=p.progress,enter=Math.min(1,t/.09),exit=Math.max(0,Math.min(1,(1-t)/.22));
       const opacity=.86*enter*enter*(3-2*enter)*exit*exit*(3-2*exit),size=p.size*(.94+.06*enter);
       const x=p.x+p.endX*t,y=p.y+p.endY*t;

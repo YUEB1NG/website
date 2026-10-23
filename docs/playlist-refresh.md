@@ -13,3 +13,5 @@ All tracks participate in the cover pool. Twenty sprites are prepared for the re
 5. Successful routine runs update persistent data only, with no build or publishing step. Remain quiet on success; report persistent failures requiring attention.
 
 Source uses the public NetEase /api/v6/playlist/detail endpoint and batched /api/v3/song/detail requests. Cover proxy accepts only known song IDs and NetEase image hosts. These public endpoints may change or become unavailable; retain the last good data in that case.
+
+Dragging holds both free-flight and orbit covers at their final screen positions with only a 1–3 px idle sway. Flight clocks pause through the drag and spring return, then resume with a 650 ms blend. The hold compensates for camera zoom as the orb radius changes.
