@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { floatingCoversReady, onFloatingCovers, coverDiagnostics } from './assets';
+import { floatingCoversReady, onFloatingCovers, coverDiagnostics, COVER_SLOTS } from './assets';
 import type { ParticleFrame } from './scene';
 import { createFootball, footballEditions, footballPlayOrder } from './football';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -26,7 +26,7 @@ export class Planets {
   private orbitSprites:THREE.Sprite[]=[];
   private naturalMaps:THREE.Texture[]=[];
   private pendingCovers=new Map<number,THREE.Texture>();
-  private coverSwapAges:number[]=Array(20).fill(1);
+  private coverSwapAges:number[]=Array(COVER_SLOTS).fill(1);
   private charmMaps:StickerPools={planet:[],stranger:[],football:[]};
   private ambient=new THREE.HemisphereLight(0xdde6ef,0x29292f,1.15);
   private light=new THREE.DirectionalLight(0xfff3e1,2.5);

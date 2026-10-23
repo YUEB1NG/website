@@ -1,10 +1,11 @@
 import fallback from './cover-fallback.json';
+export const COVER_SLOTS=24;
 type Cover={id:number;name:string;src:string;coverKey:string};
 type CoverSet={images:HTMLImageElement[];songs:Cover[];updatedAt:string};
 const listeners=new Set<(set:CoverSet)=>void>();
 const local=new Map(fallback.map(s=>[s.coverKey,s.src]));
 const cache=new Map<string,Promise<HTMLImageElement>>();
-let pool:Cover[]=fallback,current:CoverSet,cursor=20,slot=0,checking=false,rotating=false,started=false;
+let pool:Cover[]=fallback,current:CoverSet,cursor=COVER_SLOTS,slot=0,checking=false,rotating=false,started=false;
 async function coverImage(cover:Cover):Promise<HTMLImageElement>{
  const key=cover.coverKey;
  const hit=cache.get(key);if(hit){cache.delete(key);cache.set(key,hit);return hit;}
@@ -19,9 +20,9 @@ async function coverImage(cover:Cover):Promise<HTMLImageElement>{
  result.catch(()=>cache.delete(key));return result;
 }
 // Every song remains in the pool, including songs sharing an album cover.
-// Only twenty sprites are resident on screen, with bounded image/texture memory.
+// A small fixed set of sprites is resident, with bounded image/texture memory.
 export const floatingCoversReady=(async()=>{
- const songs=Array.from({length:20},(_,i)=>pool[i%pool.length]);
+ const songs=Array.from({length:COVER_SLOTS},(_,i)=>pool[i%pool.length]);
  const images=await Promise.all(songs.map(coverImage));current={images,songs,updatedAt:''};return current;
 })();
 export function onFloatingCovers(listener:(set:CoverSet)=>void){listeners.add(listener);}

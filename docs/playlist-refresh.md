@@ -3,7 +3,7 @@
 Site: appgprj_6acf7c0a671481918912bc823c053aab
 Playlist: https://music.163.com/playlist?id=7592316248
 
-All tracks participate in the cover pool. Twenty sprites are drawn simultaneously; the complete pool rotates through those slots, with bounded decoded-image and GPU memory. The profile portrait is unchanged.
+All tracks participate in the cover pool. Twenty-four sprite slots participate in the original floating animation; the complete pool rotates through those slots, with bounded decoded-image and GPU memory. The profile portrait is unchanged.
 
 ## Cloud updater
 1. Read the linked Site with Sites get_site. Use its current_live_url and existing siwc_bypass_bearer_token in memory. Never rotate, persist, print, or include the token in a URL.
