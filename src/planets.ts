@@ -320,7 +320,7 @@ export class Planets {
     const count=this.orbitSprites.length,blend=smooth(orbitMix);
     this.orbitSprites.forEach((sprite,i)=>{const p=particles[i],slot=portraitOrbit(i/count*Math.PI*2+this.orbitAngle);const orbital=this.orbitalPosition.set(slot.x,slot.y,slot.z);const natural=this.naturalPosition.set(((p?.x??x)-w/2)/radius,(h/2-(p?.y??y))/radius,-2).sub(this.group.position);
       // Keep one sprite on a continuous exterior arc for both gathering and release.
-      orbitApproach(natural,orbital,blend,sprite.position).add(this.group.position);sprite.visible=i<count&&mix>.5&&((!!p?.visible&&!reduced)||orbitMix>.005);sprite.material.opacity=coverOpacity[i]??1;sprite.userData.pop=Math.max(0,(sprite.userData.pop??0)-dt*1.8);const pop=1+Math.sin((sprite.userData.pop??0)*Math.PI)*.3;const size=THREE.MathUtils.lerp((p?.visible?p.size:0)/radius,slot.size,blend);sprite.scale.setScalar(Math.max(.001,size)*pop);
+      orbitApproach(natural,orbital,blend,sprite.position).add(this.group.position);sprite.visible=i<count&&mix>.5&&((!!p?.visible&&!reduced)||orbitMix>.005);sprite.material.opacity=(coverOpacity[i]??1)*THREE.MathUtils.lerp(p?.opacity??0,1,blend);sprite.userData.pop=Math.max(0,(sprite.userData.pop??0)-dt*1.8);const pop=1+Math.sin((sprite.userData.pop??0)*Math.PI)*.3;const size=THREE.MathUtils.lerp((p?.visible?p.size:0)/radius,slot.size,blend);sprite.scale.setScalar(Math.max(.001,size)*pop);
     });
     for(const b of [...this.bursts]){
       b.age+=dt;if(b.age<0)continue;if(b.age>b.life){this.removeBurst(b);continue;}

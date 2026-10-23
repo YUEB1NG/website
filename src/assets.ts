@@ -1,12 +1,14 @@
 import fallback from './cover-fallback.json';
-type Cover={id:number;name:string;src:string;coverKey:string};
+import { CoverDeck, coverIdentity, type Cover } from './cover-deck';
 type CoverSet={images:HTMLImageElement[];songs:Cover[];updatedAt:string};
 const listeners=new Set<(set:CoverSet)=>void>();
-const local=new Map(fallback.map(s=>[s.coverKey,s.src]));
+const local=new Map(fallback.map(s=>[coverIdentity(s),s.src]));
 const cache=new Map<string,Promise<HTMLImageElement>>();
-let pool:Cover[]=fallback,current:CoverSet,cursor=20,slot=0,checking=false,rotating=false,started=false;
+let pool:Cover[]=fallback,current:CoverSet,slot=0,checking=false,started=false,lastFlight=0;
+const deck=new CoverDeck(pool),reserved=new Set<string>(),pendingSlots=new Set<number>();
+let loading=0;
 async function coverImage(cover:Cover):Promise<HTMLImageElement>{
- const key=cover.coverKey;
+ const key=coverIdentity(cover);
  const hit=cache.get(key);if(hit){cache.delete(key);cache.set(key,hit);return hit;}
  const result=(async()=>{
   const image=new Image();image.crossOrigin='anonymous';
@@ -18,23 +20,32 @@ async function coverImage(cover:Cover):Promise<HTMLImageElement>{
  cache.set(key,result);while(cache.size>48)cache.delete(cache.keys().next().value!);
  result.catch(()=>cache.delete(key));return result;
 }
-// Every song remains in the pool, including songs sharing an album cover.
-// Only twenty sprites are resident on screen, with bounded image/texture memory.
+// All songs remain eligible; identical album artwork cannot occupy two slots at once.
 export const floatingCoversReady=(async()=>{
- const songs=Array.from({length:20},(_,i)=>pool[i%pool.length]);
+ const songs:Cover[]=[],used=new Set<string>();
+ for(let i=0;i<Math.min(20,deck.uniqueCount);i++){const song=deck.take(used);if(!song)break;songs.push(song);used.add(coverIdentity(song));}
  const images=await Promise.all(songs.map(coverImage));current={images,songs,updatedAt:''};return current;
 })();
 export function onFloatingCovers(listener:(set:CoverSet)=>void){listeners.add(listener);}
-async function rotateCover(){
- if(rotating||document.hidden)return;rotating=true;
+export function refreshCoverSlot(index:number){
+ lastFlight=performance.now();queueCover(index);
+}
+function queueCover(index:number){
+ if(!current||pendingSlots.has(index)||document.hidden)return;
+ pendingSlots.add(index);void replaceCover(index);
+}
+async function replaceCover(index:number){
+ if(loading>=4){pendingSlots.delete(index);return;}
+ const blocked=new Set([...current.songs.map(coverIdentity),...reserved]);
+ const song=deck.take(blocked);if(!song){pendingSlots.delete(index);return;}
+ const key=coverIdentity(song);reserved.add(key);loading++;
  try{
-  await floatingCoversReady;const song=pool[cursor%pool.length];cursor=(cursor+1)%pool.length;
-  const image=await coverImage(song),i=slot++%current.songs.length;
-  const images=[...current.images],songs=[...current.songs];images[i]=image;songs[i]=song;
+  const image=await coverImage(song);
+  const images=[...current.images],songs=[...current.songs];images[index]=image;songs[index]=song;
   current={...current,images,songs};listeners.forEach(listener=>listener(current));
-  // Decode upcoming covers before their turn; never upload 130 GPU textures together.
-  for(let next=0;next<3;next++)void coverImage(pool[(cursor+next)%pool.length]).catch(()=>{});
- }catch{/* Keep the displayed cover if the replacement failed. */}finally{rotating=false;}
+  for(const next of deck.peek(3))void coverImage(next).catch(()=>{});
+ }catch{/* Keep the displayed cover if the replacement failed. */}
+ finally{reserved.delete(key);pendingSlots.delete(index);loading--;}
 }
 export async function syncFloatingCovers(){
  if(checking)return;checking=true;
@@ -44,13 +55,14 @@ export async function syncFloatingCovers(){
   const seen=new Set<number>(),songs:Cover[]=[];
   for(const s of data.songs){if(!Number.isSafeInteger(s.id)||s.src!==`/api/covers/${s.id}`||typeof s.coverKey!=='string'||seen.has(s.id))continue;seen.add(s.id);songs.push(s);}
   if(songs.length!==data.total)return;
-  const nextId=pool[cursor%pool.length]?.id;pool=songs;cursor=Math.max(0,pool.findIndex(s=>s.id===nextId));current.updatedAt=data.updatedAt;
+  const changed=songs.length!==pool.length||songs.some((s,i)=>s.id!==pool[i]?.id||coverIdentity(s)!==coverIdentity(pool[i]));
+  pool=songs;if(changed)deck.update(pool);current.updatedAt=data.updatedAt;
  }catch{/* Keep the complete saved pool when the service is unavailable. */}finally{checking=false;}
 }
 export function startCoverUpdates(){
  if(started)return;started=true;void syncFloatingCovers();
- setInterval(()=>void rotateCover(),2800);
+ setInterval(()=>{if(current&&performance.now()-lastFlight>3500)queueCover(slot++%current.songs.length)},2800);
  setInterval(()=>{if(!document.hidden)void syncFloatingCovers()},60*60*1000);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void syncFloatingCovers()});
 }
-export function coverDiagnostics(){return current?{source:'netease-playlist',playlistId:'7592316248',updatedAt:current.updatedAt,ids:current.songs.map(s=>s.id),poolIds:pool.map(s=>s.id),poolCount:pool.length,visibleSlots:current.images.length,cachedImages:cache.size}:null;}
+export function coverDiagnostics(){return current?{source:'netease-playlist',playlistId:'7592316248',updatedAt:current.updatedAt,ids:current.songs.map(s=>s.id),poolIds:pool.map(s=>s.id),poolCount:pool.length,uniqueCovers:deck.uniqueCount,visibleCoverKeys:current.songs.map(coverIdentity),visibleSlots:current.images.length,cachedImages:cache.size}:null;}

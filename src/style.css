@@ -54,9 +54,15 @@ html,body,#wabi,#wabi *{-webkit-user-select:none;user-select:none;-webkit-touch-
 :root[data-theme=day] .avatar-ring{border-color:#52617180}
 
 /* Small feedback uses individual scale so existing layout transforms stay intact. */
-.back,.reveal-trigger,.quiet-trigger,.avatar-ring,.social{transition:scale .22s cubic-bezier(.2,.8,.2,1),color .25s,opacity .25s}
-@media(hover:hover){.back:hover,.reveal-trigger:hover,.quiet-trigger:hover,.avatar-ring:hover,.social:hover{scale:1.025}}
-.back:active,.reveal-trigger:active,.quiet-trigger:active,.avatar-ring:active,.social:active{scale:.975}
+.back,.reveal-trigger,.quiet-trigger,.avatar-ring{transition:scale .22s cubic-bezier(.2,.8,.2,1),color .25s,opacity .25s}
+@media(hover:hover){.back:hover,.reveal-trigger:hover,.quiet-trigger:hover,.avatar-ring:hover{scale:1.025}}
+.back:active,.reveal-trigger:active,.quiet-trigger:active,.avatar-ring:active{scale:.975}
 
 /* Supplied SVGs inherit the same day/night ink as their label, including white at night. */
 .social-content{display:inline-flex;align-items:center;justify-content:center;gap:10px}.social-icon{display:inline-flex;flex:none;width:24px;height:24px}.social-icon svg{display:block;fill:currentColor}.social{color:var(--ink)}
+
+/* Link feedback stays on the lettering, without pressing the entire row. */
+.social{scale:1;outline-offset:6px;-webkit-tap-highlight-color:transparent;transition:color .25s,opacity .25s}
+.social-content{transition:opacity .18s ease}
+.social:active .social-content{opacity:.58}
+.social:focus-visible{outline:1px dotted currentColor;border-radius:0}

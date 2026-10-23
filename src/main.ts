@@ -179,7 +179,7 @@ function tick(now:number){
     planets.select(incoming);
     if(queuedEntry)setActive(true);
   }
-  scene.render({x,y,radius,active:active&&!blueprint.active,time:elapsed,dt,reduced,tiltX:smoothTiltX,tiltY:smoothTiltY,day,planetMix,orbit,threeParticles:planets.available});
+  scene.render({x,y,radius,active:active&&!blueprint.active,time:elapsed,dt,reduced,tiltX:smoothTiltX,tiltY:smoothTiltY,day,planetMix,orbit,threeParticles:planets.available,dragging});
   planets.render(x,y,radius,planetMix,dt,reduced,day,scene.orbitBlend,scene.particleFrames,dragging);
   if(lastObjectName!==planets.objectName)syncObject();
   requestAnimationFrame(tick);

@@ -1,5 +1,5 @@
 import { prismFragment } from './prism';
-import { floatingCoversReady, onFloatingCovers } from './assets';
+import { floatingCoversReady, onFloatingCovers, refreshCoverSlot } from './assets';
 
 
 const vertex = `attribute vec2 a_position; void main(){gl_Position=vec4(a_position,0.,1.);}`;
@@ -10,8 +10,8 @@ float hash12(vec2 p){vec3 p3=fract(vec3(p.x,p.y,p.x)*.1031);p3+=dot(p3,vec3(p3.y
 void main(){vec2 p=vec2(gl_FragCoord.x,resolution.y-gl_FragCoord.y);vec2 q=p/pixelRatio;float d=pow(hash12(q),3.);float mult=.55+.45*(sin(.22*time+q.x+q.y)+1.)*.5;d=smoothstep(.99,1.,d)*mult;vec4 image=texture2D(layer,p/resolution);gl_FragColor=vec4(mix(mix(vec3(d),vec3(.957,.965,.98)-vec3(d*.12),day),image.rgb,image.a),1.);}`;
 
 type Particle = { image: HTMLImageElement; progress:number; delay:number; speed:number; x:number; y:number; endX:number; endY:number };
-export interface Frame { x:number; y:number; radius:number; active:boolean; time:number; dt:number; reduced:boolean; tiltX:number; tiltY:number; day:boolean; planetMix:number; orbit:boolean; threeParticles:boolean }
-export type ParticleFrame={x:number;y:number;size:number;visible:boolean};
+export interface Frame { x:number; y:number; radius:number; active:boolean; time:number; dt:number; reduced:boolean; tiltX:number; tiltY:number; day:boolean; planetMix:number; orbit:boolean; threeParticles:boolean;dragging:boolean }
+export type ParticleFrame={x:number;y:number;size:number;opacity:number;visible:boolean};
 
 export class Scene {
   private gl: WebGLRenderingContext | null;
@@ -39,7 +39,7 @@ export class Scene {
     this.ready=floatingCoversReady.then(({images})=>{
       images.forEach((image,index)=>{
         this.particles.push({image,progress:0,delay:index*200,speed:.00028*(.5+Math.random()*1.3),x:0,y:0,endX:0,endY:0});
-        this.particleFrames.push({x:0,y:0,size:0,visible:false});
+        this.particleFrames.push({x:0,y:0,size:0,opacity:0,visible:false});
       });
     });
     onFloatingCovers(({images})=>this.particles.forEach((p,i)=>p.image=images[i]));
@@ -84,11 +84,11 @@ export class Scene {
     this.particles.forEach(p=>this.reset(p));
   }
   private reset(p:Particle){
-    const height=this.height*.4+10,t=Math.random()**2,spread=height*t*Math.tan(Math.PI/8);
-    p.x=this.width/2-35+(Math.random()*2-1)*spread;p.y=height*(1-t);
-    const dx=p.x+35-this.width/2,jitter=(Math.random()*2-1)*15;
-    const angle=(Math.abs(dx)<=this.width*.08?90+jitter:dx>0?45+jitter*.5:135+jitter*.5)*Math.PI/180;
-    const length=(p.y+80)/Math.sin(angle);p.endX=p.x+length*Math.cos(angle);p.endY=p.y-length*Math.sin(angle);p.progress=0;
+    // Spawn across the upper hemisphere, in coordinates relative to the moving orb.
+    const angle=Math.PI+Math.random()*Math.PI;
+    p.x=Math.cos(angle)*.72;p.y=Math.sin(angle)*.72;
+    p.endX=(Math.random()-.5)*this.width*.85;
+    p.endY=-Math.max(220,this.height*.48)*(.75+Math.random()*.4);p.progress=0;
   }
   render(frame:Frame){
     this.orbitMix=frame.reduced?(frame.orbit?1:0):this.orbitMix+((frame.orbit?1:0)-this.orbitMix)*(1-Math.exp(-frame.dt*1.6));
@@ -100,14 +100,16 @@ export class Scene {
     this.particleFrames.forEach(p=>p.visible=false);
     if((!frame.reduced&&this.elapsed>=1500)||frame.orbit){for(const [i,p] of this.particles.entries()){
       if(this.orbitMix<.001&&(this.elapsed<1500+p.delay||(!frame.active&&p.progress===0)))continue;
+      if(frame.dragging&&p.progress===0)continue;
       if(!frame.reduced)p.progress+=p.speed*frame.dt*1000;
       if(this.orbitMix>.001)p.progress=Math.min(p.progress,1.15);
-      if(p.progress>=1&&this.orbitMix<.001){if(frame.active)this.reset(p);else continue;}
+      if(p.progress>=1&&this.orbitMix<.001){if(frame.active&&!frame.dragging){this.reset(p);refreshCoverSlot(i);}else continue;}
       const t=p.progress,scale=Math.min(1,t/.3),size=48*scale;
-      const x=p.x+(p.endX-p.x)*t+35-size/2+frame.tiltX*frame.radius;
-      const y=p.y+(p.endY-p.y)*t+35-size/2+Math.min(frame.tiltY*frame.radius,0);
-      this.particleFrames[i]={x:x+size/2,y:y+size/2,size,visible:true};
-      if(!frame.threeParticles&&p.image.complete&&p.image.naturalWidth)ctx.drawImage(p.image,x,y,size,size);
+      const x=frame.x+p.x*frame.radius+p.endX*t-size/2+frame.tiltX*frame.radius;
+      const y=frame.y+p.y*frame.radius+p.endY*t-size/2+Math.min(frame.tiltY*frame.radius,0);
+      const fade=Math.max(0,Math.min(1,(1-t)/.18));const opacity=fade*fade*(3-2*fade);
+      this.particleFrames[i]={x:x+size/2,y:y+size/2,size,opacity,visible:true};
+      if(!frame.threeParticles&&p.image.complete&&p.image.naturalWidth){ctx.globalAlpha=opacity;ctx.drawImage(p.image,x,y,size,size);ctx.globalAlpha=1;}
     }}ctx.restore();
     const w=this.canvas.width,h=this.canvas.height,[base,prism]=this.programs;
     this.use(base);gl.bindFramebuffer(gl.FRAMEBUFFER,this.framebuffer!);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.layer!);if(!frame.threeParticles){gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,this.paint);this.uploadedParticleLayer=true;}
