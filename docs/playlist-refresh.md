@@ -3,7 +3,7 @@
 Site: appgprj_6acf7c0a671481918912bc823c053aab
 Playlist: https://music.163.com/playlist?id=7592316248
 
-All tracks participate in the cover pool. A random twenty to twenty-nine sprite slots per visit participate in the original floating animation; all unique artwork is randomly selected, excluding displayed and queued covers plus the last 55 selections. The recent list persists locally across reloads when browser storage is available. Free-flight covers change only at a new flight, using an eight-image decoded queue; orbit covers crossfade every 2.8 seconds. Motion remains unchanged and memory stays bounded. The profile portrait is unchanged.
+All tracks participate in the cover pool. A random twenty to twenty-five sprite slots per visit participate in the original floating animation; all unique artwork is randomly selected, excluding displayed and queued covers plus the last 55 selections. The recent list persists locally across reloads when browser storage is available. Free-flight covers change only at a new flight, using an eight-image decoded queue; orbit covers crossfade every 2.8 seconds. Motion remains unchanged and memory stays bounded. The profile portrait is unchanged.
 
 ## Cloud updater
 1. Read the linked Site with Sites get_site. Use its current_live_url and existing siwc_bypass_bearer_token in memory. Never rotate, persist, print, or include the token in a URL.
