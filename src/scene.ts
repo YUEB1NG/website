@@ -111,7 +111,11 @@ export class Scene {
       this.nextEmission=this.elapsed+1900+Math.random()*500;
     }
     const ctx=this.ctx;if(!frame.threeParticles)ctx.clearRect(0,0,this.paint.width,this.paint.height);ctx.save();ctx.scale(this.ratio,this.ratio);
-    this.particleFrames.forEach(p=>p.visible=false);
+    this.particleFrames.forEach((point,i)=>{
+      point.visible=false;
+      // Extra orbit-only covers start behind the orb, never at the screen origin.
+      if(this.particles[i].generation===0){point.x=frame.x;point.y=frame.y-frame.radius*.25;point.size=0;point.opacity=0;}
+    });
     for(const [i,p] of this.particles.entries()){
       if(frame.reduced||p.progress>=1)continue;
       p.progress=Math.min(1,p.progress+p.speed*frame.dt*1000);
