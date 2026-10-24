@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { floatingCoversReady, onFloatingCovers, coverDiagnostics, COVER_SLOTS } from './assets';
+import { floatingCoversReady, onFloatingCovers, coverDiagnostics, COVER_SLOTS, onPreparedCover, setCoverMotionBusy } from './assets';
 import type { ParticleFrame } from './scene';
 import { createFootball, footballEditions, footballPlayOrder } from './football';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -25,6 +25,13 @@ export class Planets {
   private rings=new THREE.Group();
   private orbitSprites:THREE.Sprite[]=[];
   private naturalMaps:THREE.Texture[]=[];
+  private coverTextures=new Map<HTMLImageElement,THREE.Texture>();
+  private coverUploads=0;
+  private coverUploadsDuringMorph=0;
+  private orbitOrigins:THREE.Vector3[]=[];
+  private orbitPhases:number[]=[];
+  private orbitDirection=0;
+  private orbitStartBlend=0;
   private pendingCovers=new Map<number,THREE.Texture>();
   private coverSwapAges:number[]=Array(COVER_SLOTS).fill(1);
   private charmMaps:StickerPools={planet:[],stranger:[],football:[]};
@@ -104,7 +111,7 @@ export class Planets {
       load('/planets/earth_nightmap.jpg').then(t=>this.night=t),load('/planets/earth-normal.jpg',false).then(t=>this.normal=t),load('/planets/earth-specular.jpg',false).then(t=>this.specular=t),
       load('/planets/earth_clouds.jpg',false).then(t=>{this.clouds.material.alphaMap=t;this.clouds.material.needsUpdate=true;}),load('/planets/saturn-ring.png').then(t=>this.ringMap=t),
       floatingCoversReady.then(({images})=>images.forEach((image,i)=>{
-        const texture=new THREE.Texture(image);texture.colorSpace=THREE.SRGBColorSpace;texture.needsUpdate=true;this.naturalMaps[i]=texture;
+        const texture=this.coverTexture(image);this.naturalMaps[i]=texture;
         const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:true,depthWrite:false,alphaTest:.04,toneMapped:false}));sprite.layers.set(PORTRAIT_LAYER);sprite.renderOrder=2;sprite.userData.particle=i;sprite.visible=false;this.scene.add(sprite);this.orbitSprites[i]=sprite;
       })),
       loadStickers().then(textures=>{this.charmMaps=textures;})
@@ -123,16 +130,24 @@ export class Planets {
       await this.warmFootball(footballPlayOrder[1]);
       await this.warmFootball(footballPlayOrder[2]);
     });this.select(2);
+    onPreparedCover(image=>{this.coverTexture(image);});
     onFloatingCovers(({images,birth})=>{
       images.forEach((image,i)=>{
         if(this.naturalMaps[i]?.image===image||this.pendingCovers.get(i)?.image===image)return;
-        this.pendingCovers.get(i)?.dispose();
-        const texture=new THREE.Texture(image);texture.colorSpace=THREE.SRGBColorSpace;texture.needsUpdate=true;
-        this.renderer?.initTexture(texture);
-        if(birth===i){const old=this.naturalMaps[i];this.naturalMaps[i]=texture;this.orbitSprites[i].material.map=texture;this.pendingCovers.delete(i);this.coverSwapAges[i]=1;old?.dispose();}
+        const texture=this.coverTexture(image);
+        if(birth===i){this.naturalMaps[i]=texture;this.orbitSprites[i].material.map=texture;this.pendingCovers.delete(i);this.coverSwapAges[i]=1;}
         else{this.pendingCovers.set(i,texture);this.coverSwapAges[i]=0;}
       });
     });
+  }
+  private coverTexture(image:HTMLImageElement){
+    const hit=this.coverTextures.get(image);if(hit){this.coverTextures.delete(image);this.coverTextures.set(image,hit);return hit;}
+    const texture=new THREE.Texture(image);texture.colorSpace=THREE.SRGBColorSpace;
+    texture.generateMipmaps=false;texture.minFilter=THREE.LinearFilter;texture.needsUpdate=true;
+    this.renderer?.initTexture(texture);this.coverUploads++;if(this.footballTransition)this.coverUploadsDuringMorph++;
+    this.coverTextures.set(image,texture);
+    if(this.coverTextures.size>160){const protectedMaps=new Set([...this.naturalMaps,...this.pendingCovers.values()]);for(const [key,t] of this.coverTextures){if(this.coverTextures.size<=160)break;if(!protectedMaps.has(t)){this.coverTextures.delete(key);t.dispose();}}}
+    return texture;
   }
   private updateSurface(){
     const earth=this.index===2,sun=this.index===9;this.material.map=this.textures[this.index]??null;this.material.color.set(0xffffff);
@@ -251,7 +266,7 @@ export class Planets {
     },1050);
   }
   nextFootball(reduced=false){
-    const started=performance.now();clearTimeout(this.warmTimer);
+    const started=performance.now();clearTimeout(this.warmTimer);setCoverMotionBusy(true);
     if(this.footballTransition||this.pendingFootball){this.queuedFootball=true;return;}
     const index=footballPlayOrder[(this.footballCursor+1)%footballPlayOrder.length];
     if(reduced||!this.available){this.footballIndex=index;this.footballCursor=footballPlayOrder.indexOf(index);const target=this.footballCache.get(index);this.footballCache.delete(index);this.setMode('football',target);return;}
@@ -302,7 +317,14 @@ export class Planets {
   }
   private removeBurst(b:Burst){this.scene.remove(b.sprite);b.sprite.material.dispose();this.bursts.splice(this.bursts.indexOf(b),1);}
   render(x:number,y:number,radius:number,mix:number,dt:number,reduced:boolean,day:boolean,orbitMix:number,particles:ParticleFrame[],dragging=false){
-    const w=this.canvas.parentElement!.clientWidth,h=this.canvas.parentElement!.clientHeight;this.orbitMix=orbitMix;this.surfaceMix=mix;
+    const w=this.canvas.parentElement!.clientWidth,h=this.canvas.parentElement!.clientHeight;
+    const delta=orbitMix-this.orbitMix;
+    const direction=Math.abs(delta)>1e-7?Math.sign(delta):this.orbitDirection;
+    const beginMotion=direction!==this.orbitDirection;
+    const gathering=direction>0;
+    if(beginMotion){this.orbitStartBlend=orbitMix;this.orbitDirection=direction;}
+    setCoverMotionBusy(!!this.footballTransition||this.pendingFootball||(orbitMix>.001&&orbitMix<.999));
+    this.orbitMix=orbitMix;this.surfaceMix=mix;
     if(this.viewport!==`${w}/${h}`){this.viewport=`${w}/${h}`;this.renderer?.setSize(w,h,false);}
     this.camera.left=-w/(2*radius);this.camera.right=w/(2*radius);this.camera.top=h/(2*radius);this.camera.bottom=-h/(2*radius);this.camera.updateProjectionMatrix();this.group.position.set((x-w/2)/radius,(h/2-y)/radius,0);this.group.visible=mix>0;this.group.scale.setScalar(1);this.canvas.style.opacity=String(mix);
     if(!this.available)return;
@@ -316,13 +338,25 @@ export class Planets {
     const coverOpacity=this.coverSwapAges.map((age,i)=>{
       age=this.coverSwapAges[i]=Math.min(1,age+dt);
       const pending=this.pendingCovers.get(i);
-      if(pending&&age>=.3){const old=this.naturalMaps[i];this.naturalMaps[i]=pending;this.orbitSprites[i].material.map=pending;this.pendingCovers.delete(i);old?.dispose();}
+      if(pending&&age>=.3){this.naturalMaps[i]=pending;this.orbitSprites[i].material.map=pending;this.pendingCovers.delete(i);}
       return age<.3?1-smooth(age/.3):smooth(Math.min(1,(age-.3)/.3));
     });
     const count=this.orbitSprites.length,blend=smooth(orbitMix);
-    this.orbitSprites.forEach((sprite,i)=>{const p=particles[i],slot=portraitOrbit(i/count*Math.PI*2+this.orbitAngle);const orbital=this.orbitalPosition.set(slot.x,slot.y,slot.z);const natural=this.naturalPosition.set(((p?.x??x)-w/2)/radius,(h/2-(p?.y??y))/radius,-2).sub(this.group.position);
-      // Keep one sprite on a continuous exterior arc for both gathering and release.
-      orbitApproach(natural,orbital,blend,sprite.position).add(this.group.position);sprite.visible=i<count&&mix>.5&&((!!p?.visible&&!reduced)||orbitMix>.005);sprite.material.opacity=coverOpacity[i]??1;sprite.userData.pop=Math.max(0,(sprite.userData.pop??0)-dt*1.8);const pop=1+Math.sin((sprite.userData.pop??0)*Math.PI)*.3;const size=THREE.MathUtils.lerp((p?.visible?p.size:0)/radius,slot.size,blend);sprite.scale.setScalar(Math.max(.001,size)*pop);
+    if(beginMotion){
+      // Capture each visible start once; the hidden flight must not drag its
+      // gathering path away. Preserve circular order to avoid crossing paths.
+      const starts=this.orbitSprites.map((sprite,i)=>{const p=particles[i];const v=sprite.visible?sprite.position.clone():new THREE.Vector3(((p?.x??x)-w/2)/radius,(h/2-(p?.y??y))/radius,-2);this.orbitOrigins[i]=v.sub(this.group.position);return {i,angle:Math.atan2(v.y,v.x)};}).sort((a,b)=>a.angle-b.angle);
+      const slots=starts.map((_,i)=>{const phase=i/count*Math.PI*2,slot=portraitOrbit(phase+this.orbitAngle);return {phase,angle:Math.atan2(slot.y,slot.x)};}).sort((a,b)=>a.angle-b.angle);
+      if(gathering)starts.forEach((start,i)=>this.orbitPhases[start.i]=slots[i].phase);
+    }
+    this.orbitSprites.forEach((sprite,i)=>{const p=particles[i],slot=portraitOrbit((this.orbitPhases[i]??i/count*Math.PI*2)+this.orbitAngle);const orbital=this.orbitalPosition.set(slot.x,slot.y,slot.z);const natural=this.naturalPosition.set(((p?.x??x)-w/2)/radius,(h/2-(p?.y??y))/radius,-2).sub(this.group.position);
+      // A direction change starts at the displayed position, including an
+      // interrupted long press. Free flight still owns its independent screen path.
+      if(this.orbitOrigins[i]&&orbitMix>.001){
+        if(gathering){const t=smooth(THREE.MathUtils.clamp((orbitMix-this.orbitStartBlend)/Math.max(.00001,1-this.orbitStartBlend),0,1));orbitApproach(this.orbitOrigins[i],orbital,t,sprite.position);}
+        else{const t=smooth(THREE.MathUtils.clamp(orbitMix/Math.max(.00001,this.orbitStartBlend),0,1));orbitApproach(natural,this.orbitOrigins[i],t,sprite.position);}
+      }else sprite.position.copy(natural);
+      sprite.position.add(this.group.position);sprite.visible=i<count&&mix>.5&&((!!p?.visible&&!reduced)||orbitMix>.005);sprite.material.opacity=coverOpacity[i]??1;sprite.userData.pop=Math.max(0,(sprite.userData.pop??0)-dt*1.8);const pop=1+Math.sin((sprite.userData.pop??0)*Math.PI)*.3;const size=THREE.MathUtils.lerp((p?.visible?p.size:0)/radius,slot.size,blend);sprite.scale.setScalar(Math.max(.001,size)*pop);
     });
     for(const b of [...this.bursts]){
       b.age+=dt;if(b.age<0)continue;if(b.age>b.life){this.removeBurst(b);continue;}
@@ -343,5 +377,5 @@ export class Planets {
   }
   get available(){return !!this.renderer&&!this.lost;}
   get objectName(){const edition=footballEditions[this.footballIndex];return this.mode==='planet'?planetNames[this.index]:`${edition.year} ${edition.name}`;}
-  get diagnostics(){const visible=this.orbitSprites.filter(s=>s.visible),depths=visible.map(s=>s.position.z);return {covers:coverDiagnostics(),renderer:this.available?'threejs':'fallback',name:this.objectName,mode:this.mode,index:this.index,rotation:this.rotation,ready:!!this.night,loadedSurfaces:this.textures.filter(Boolean).length,modelStyle:'textured',warmedPlanets:[...this.warmedPlanets],surfaceTexture:(this.material.map?.image as HTMLImageElement|undefined)?.src?.split('/').pop()??null,glass:this.glass.diagnostics,footballYears:footballPlayOrder.map(i=>footballEditions[i].year),orbitAngle:this.orbitAngle,orbitCount:visible.length,orbitDepth:[Math.min(...depths),Math.max(...depths)],depthTest:this.orbitSprites.every(s=>s.material.depthTest),orbitMix:this.orbitMix,footballCount:footballEditions.length,bursts:this.bursts.length,stickersLoaded:Object.values(this.charmMaps).reduce((n,p)=>n+p.length,0),stickerPools:Object.fromEntries(Object.entries(this.charmMaps).map(([k,v])=>[k,v.length])),lastBurst:this.lastBurst,stickerMotion:this.bursts.map(b=>({age:b.age,life:b.life,x:b.sprite.position.x,y:b.sprite.position.y,opacity:b.sprite.material.opacity})),orbitPortraits:visible.map(s=>({x:s.position.x-this.group.position.x,y:s.position.y-this.group.position.y,z:s.position.z,size:s.scale.x})),surfaceMix:this.surfaceMix,surfaceScale:this.group.scale.x,footballTransition:this.footballTransition?.diagnostics??null,pendingFootball:this.pendingFootball,footballCache:this.footballCache.size,lastFootballClickMs:this.lastFootballClickMs,maintenance:{...this.maintenance},renderPose:{targetWorld:(this.footballTransition?.target??this.keepsake)?.matrixWorld.elements.slice()??null,ambient:this.ambient.intensity,light:this.light.intensity,tilt:this.group.rotation.z},shaderPrograms:this.renderer?.info.programs?.length,particlePositions:visible.slice(0,3).map(s=>({x:s.position.x,y:s.position.y,z:s.position.z,opacity:s.material.opacity}))};}
+  get diagnostics(){const visible=this.orbitSprites.filter(s=>s.visible),depths=visible.map(s=>s.position.z);return {covers:coverDiagnostics(),renderer:this.available?'threejs':'fallback',name:this.objectName,mode:this.mode,index:this.index,rotation:this.rotation,ready:!!this.night,loadedSurfaces:this.textures.filter(Boolean).length,modelStyle:'textured',warmedPlanets:[...this.warmedPlanets],surfaceTexture:(this.material.map?.image as HTMLImageElement|undefined)?.src?.split('/').pop()??null,glass:this.glass.diagnostics,footballYears:footballPlayOrder.map(i=>footballEditions[i].year),orbitAngle:this.orbitAngle,orbitCount:visible.length,orbitDepth:[Math.min(...depths),Math.max(...depths)],depthTest:this.orbitSprites.every(s=>s.material.depthTest),orbitMix:this.orbitMix,footballCount:footballEditions.length,bursts:this.bursts.length,stickersLoaded:Object.values(this.charmMaps).reduce((n,p)=>n+p.length,0),stickerPools:Object.fromEntries(Object.entries(this.charmMaps).map(([k,v])=>[k,v.length])),lastBurst:this.lastBurst,stickerMotion:this.bursts.map(b=>({age:b.age,life:b.life,x:b.sprite.position.x,y:b.sprite.position.y,opacity:b.sprite.material.opacity})),orbitPortraits:visible.map(s=>({x:s.position.x-this.group.position.x,y:s.position.y-this.group.position.y,z:s.position.z,size:s.scale.x})),surfaceMix:this.surfaceMix,surfaceScale:this.group.scale.x,footballTransition:this.footballTransition?.diagnostics??null,pendingFootball:this.pendingFootball,footballCache:this.footballCache.size,lastFootballClickMs:this.lastFootballClickMs,maintenance:{...this.maintenance,coverUploads:this.coverUploads,coverUploadsDuringMorph:this.coverUploadsDuringMorph,coverTextures:this.coverTextures.size},renderPose:{targetWorld:(this.footballTransition?.target??this.keepsake)?.matrixWorld.elements.slice()??null,ambient:this.ambient.intensity,light:this.light.intensity,tilt:this.group.rotation.z},shaderPrograms:this.renderer?.info.programs?.length,particlePositions:visible.slice(0,3).map(s=>({x:s.position.x,y:s.position.y,z:s.position.z,opacity:s.material.opacity}))};}
 }

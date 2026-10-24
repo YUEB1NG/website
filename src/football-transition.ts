@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 // One shared clock controls GPU travel, particle fade, solid and glass.
-export const morphTiming={scatterEnd:.27,gatherStart:.32,gatherEnd:.74,maxDelay:.055,revealStart:.77,revealEnd:1} as const;
+export const morphTiming={gatherStart:0,gatherEnd:.74,maxDelay:.055,revealStart:.77,revealEnd:1} as const;
 export function morphFrame(t:number){
  const p=THREE.MathUtils.clamp((t-morphTiming.maxDelay)/(1-morphTiming.maxDelay),0,1);
  const landing=THREE.MathUtils.smootherstep(p,morphTiming.gatherStart,morphTiming.gatherEnd);
@@ -119,9 +119,14 @@ export function createFootballParticles(){
     const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,vertexColors:true,uniforms:{progress:{value:0},reveal:{value:0},pointSize:{value:3},opacity:{value:0},destinationMatrix:{value:new THREE.Matrix4()}},
       vertexShader:`attribute vec3 destination;attribute vec3 scatter;attribute vec3 targetColor;attribute float delay;uniform float progress;uniform float reveal;uniform float pointSize;uniform mat4 destinationMatrix;varying vec3 vTint;varying float vCoverage;
         float smoother(float a,float b,float x){float t=clamp((x-a)/(b-a),0.,1.);return t*t*t*(t*(t*6.-15.)+10.);}
-        void main(){float p=clamp((progress-delay)/(1.-delay),0.,1.);float outT=clamp(p/${morphTiming.scatterEnd},0.,1.);outT=1.-pow(1.-outT,3.);float inT=smoother(${morphTiming.gatherStart},${morphTiming.gatherEnd},p);
-        vec3 cloud=scatter;float swirl=sin(p*3.14159265)*.18;cloud.x+=sin(scatter.z*2.+p*5.)*swirl;cloud.y+=cos(scatter.x*3.+p*4.)*swirl;
-        vec3 landing=(destinationMatrix*vec4(destination,1.)).xyz;vec3 pos=mix(mix(position,cloud,outT),landing,inT);vTint=mix(color,targetColor,smoother(.25,.78,p));vCoverage=1.;gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.);gl_PointSize=pointSize*(.8+.2*sin(delay*70.))*mix(1.,.42,reveal);}`,
+        void main(){float p=clamp((progress-delay)/(1.-delay),0.,1.);
+        vec3 landing=(destinationMatrix*vec4(destination,1.)).xyz;
+        float travel=smoother(0.,${morphTiming.gatherEnd},p);
+        vec3 base=mix(position,landing,travel);
+        vec3 outward=normalize(position+landing+vec3(.0001));
+        float lift=sin(3.14159265*travel);
+        vec3 tangent=vec3(-outward.z,0.,outward.x);
+        vec3 pos=base+outward*lift*(1.15+length(scatter)*.12)+tangent*sin(6.2831853*travel)*lift*.10;vTint=mix(color,targetColor,smoother(.25,.78,p));vCoverage=1.;gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.);gl_PointSize=pointSize*(.8+.2*sin(delay*70.))*mix(1.,.42,reveal);}`,
       fragmentShader:`uniform float opacity;varying vec3 vTint;varying float vCoverage;void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;gl_FragColor=vec4(vTint,opacity*vCoverage*(1.-smoothstep(.2,.5,d)));
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -135,7 +140,7 @@ export class FootballTransition {
   readonly points:THREE.Points<THREE.BufferGeometry,THREE.ShaderMaterial>;
   readonly target:THREE.Group;
   age=0;
-  readonly duration=2.7;
+  readonly duration=2.35;
   private outgoing=new Map<THREE.Material,{opacity:number}>();
   private incoming=new Map<THREE.Material,{opacity:number}>();
   private sources:THREE.Object3D[];
