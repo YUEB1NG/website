@@ -4,7 +4,7 @@ import type { ParticleFrame } from './scene';
 import { createFootball, footballEditions, footballPlayOrder } from './football';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { loadStickers, pickStickerCategory, stickerCount, type StickerPools } from './stickers';
-import { portraitOrbit, orbitApproach, PORTRAIT_LAYER } from './portrait-orbit';
+import { portraitOrbit, PORTRAIT_LAYER } from './portrait-orbit';
 import { FootballTransition, createFootballParticles, prepareDissolve, prepareFootballSurface } from './football-transition';
 import { FluidGlass } from './fluid-glass';
 
@@ -333,9 +333,9 @@ export class Planets {
       return age<.3?1-smooth(age/.3):smooth(Math.min(1,(age-.3)/.3));
     });
     const count=this.orbitSprites.length,blend=smooth(orbitMix);
-    this.orbitSprites.forEach((sprite,i)=>{const p=particles[i],slot=portraitOrbit(i/count*Math.PI*2+this.orbitAngle);const orbital=this.orbitalPosition.set(slot.x,slot.y,slot.z);const natural=this.naturalPosition.set(((p?.x??x)-w/2)/radius,(h/2-(p?.y??y))/radius,-2).sub(this.group.position);
-      // Keep one sprite on a continuous exterior arc for both gathering and release.
-      orbitApproach(natural,orbital,blend,sprite.position).add(this.group.position);sprite.visible=i<count&&mix>.5&&((!!p?.visible&&!reduced)||orbitMix>.005);sprite.material.opacity=coverOpacity[i]??1;sprite.userData.pop=Math.max(0,(sprite.userData.pop??0)-dt*1.8);const pop=1+Math.sin((sprite.userData.pop??0)*Math.PI)*.3;const size=THREE.MathUtils.lerp((p?.visible?p.size:0)/radius,slot.size,blend);sprite.scale.setScalar(Math.max(.001,size)*pop);
+    this.orbitSprites.forEach((sprite,i)=>{const p=particles[i],slot=portraitOrbit(i/count*Math.PI*2+this.orbitAngle);const orbital=this.orbitalPosition.set(slot.x,slot.y,slot.z).add(this.group.position);const natural=this.naturalPosition.set(((p?.x??x)-w/2)/radius,(h/2-(p?.y??y))/radius,-2);
+      // One persistent sprite on one continuous path, without fading to a duplicate.
+      sprite.position.copy(natural.lerp(orbital,blend));sprite.visible=i<count&&mix>.5&&((!!p?.visible&&!reduced)||orbitMix>.005);sprite.material.opacity=coverOpacity[i]??1;sprite.userData.pop=Math.max(0,(sprite.userData.pop??0)-dt*1.8);const pop=1+Math.sin((sprite.userData.pop??0)*Math.PI)*.3;const size=THREE.MathUtils.lerp((p?.visible?p.size:0)/radius,slot.size,blend);sprite.scale.setScalar(Math.max(.001,size)*pop);
     });
     for(const b of [...this.bursts]){
       b.age+=dt;if(b.age<0)continue;if(b.age>b.life){this.removeBurst(b);continue;}
@@ -350,7 +350,8 @@ export class Planets {
     }
     // The glass follows the very same dissolve envelope as the solid surface;
     // no shell remains during the particle-only part of a football change.
-    const glassPresence=this.footballTransition?.surfacePresence??1;
+    const progress=this.footballTransition?.diagnostics.progress;
+    const glassPresence=progress===undefined?1:progress<.13?1-smooth(progress/.13):progress>.84?smooth((progress-.84)/.16):0;
     this.glass.update(this.group,x,y,radius,dt,reduced,dragging,day,mix>.001?glassPresence:0);
     this.scene.updateMatrixWorld();if(mix>.001)this.glass.render(this.renderer!,this.scene,this.camera);
   }

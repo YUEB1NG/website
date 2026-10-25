@@ -1,6 +1,6 @@
-# YUEB1NG · Wabi Web
+# website · YUEB1NG
 
-保留 quattro4maggi Wabi 主界面、imdaryl 蓝图开屏和 ped.ro 文字布局，隐藏区域恢复柔和文字模糊。公网地址：https://yueb1ng-wabi.fluffy-coot-8524.chatgpt.site 。
+保留 quattro4maggi Wabi 主界面、imdaryl 蓝图开屏和 ped.ro 文字布局，隐藏区域恢复柔和文字模糊。公网地址：https://yueb1ng-wabi.quyue.chatgpt.site 。
 
 ## 启动与构建
 
@@ -25,12 +25,12 @@ npm run build
 
 ## 当前素材边界
 
-- @YUEB1NG 的真实 X 关注列表由用户延后提供；普通模式保留20张原版 Wabi 粒子。
+- 漂浮图片来自网易云歌单 `7592316248`，当前包含130首歌、129种封面；每次访问随机20–25个显示位，尽量避开同屏图片和最近55张。封面数据更新说明见 [docs/playlist-refresh.md](docs/playlist-refresh.md)。
 - 指定小红书笔记短链接连接失败，未读取或复制其中的头衔图标。Google 世界杯决赛 Doodle 已作视觉参考，新增图标是原创矢量素材。
 
 ## 文件与验证
 
-`src/main.ts` 管理手势和文字；`scene.ts` 保留星空／棱镜并计算漂浮路径；`planets.ts` 在同一个 Three.js 场景渲染星体和头像；`football.ts`、`football-transition.ts`、`portrait-orbit.ts`、`stickers.ts` 分别提供足球、粒子重组、球外弧线轨道和贴纸。透明圈与星体共用球心和半径，通过材质渐变衔接。
+`src/main.ts` 管理手势和文字；`scene.ts` 保留星空／棱镜并计算漂浮路径；`planets.ts` 在同一个 Three.js 场景渲染星体和头像；`football.ts`、`football-transition.ts`、`portrait-orbit.ts`、`stickers.ts` 分别提供足球、粒子重组、椭圆轨道和贴纸。透明圈与星体共用球心和半径，通过材质渐变衔接。
 
 `python -X utf8 tests/browser-smoke.py` 执行当前完整交互检查（需先连接 agent-browser）；`tests/orbit-smoke.py` 检查长按与拖拽手势。截图和验证记录放在忽略目录 `artifacts/`。真实 iPhone Safari 尚未实机验证。
 
@@ -38,7 +38,7 @@ npm run build
 
 项目位于 `D:\Projects\yueb1ng-wabi`，使用独立安装的 `D:\nodejs\node.exe`。`python -X utf8 run-local.py` 启动独立预览进程；关闭终端或桌面应用不会终止该进程。`python -X utf8 run-local.py --stop` 停止本项目的预览。日志和 PID 只放在项目 `artifacts/` 目录中。
 
-网站构建产物是标准静态文件 `dist/`，可由任何静态 HTTP 服务托管；线上网站不依赖本机预览进程。`.openai/hosting.json` 仅是当前发布渠道的配置，不是网站运行依赖。
+前端静态产物在 `dist/client/`；`dist/server/` 是处理歌单及封面 API 的 Cloudflare Worker。网站运行不依赖本机或 Codex 进程。独立部署需要自行配置 R2 的 `BUCKET` 绑定及 `PLAYLIST_UPDATER_TOKEN` 密钥；不要将密钥提交到仓库。`.openai/hosting.json` 是现有 Sites 发布配置，完整 Git 历史也保留在本仓库中。
 
 玻璃有两束独立游动的柔光，慢速与不同轨迹，不绑定模型旋转；减弱色散与拖动弹性。回到透明圈后停止隐藏的 Three.js 绘制，Three.js 可用时不再上传冗余二维粒子画布。
 
@@ -49,10 +49,8 @@ npm run build
 两个地区均显示 Follow on 与 @YUEB1NG，只切换平台图标和对应链接。底部使用用户提供的 X／抖音 SVG，通过 currentColor 跟随日夜主题；首次判定后再沿用原来的淡入，避免先显示 X 再闪成抖音。网络恢复后重新判断，切换时文字和图标一起平滑淡出／淡入。链接及样式位于 src/regional-social.ts。
 
 
-### Hidden planet staging and particle landing (2026-10-19)
+### 当前动画回退记录
 
-All ten planetary materials/rings are retained and their screen/capture shader variants are warmed before entry. The next surface is selected only while the 3D layer is fully transparent, including drag-to-enter and rapid reversal. No new surface is selected on visible drag release.
+2026-10-25 按要求分别恢复这两处动画各自上一次不同的实现：足球粒子重组来自 `130901e`，持续2.15秒，实体与玻璃在最后16%渐入；封面入轨的位置计算来自 `3461907`，沿原有直接插值路径聚拢到椭圆轨道。封面数量、随机选图、预加载、日夜模式和其他功能保留。
 
-Football transitions keep the particle explosion. Nearby angular surface regions are paired; outward travel overlaps the return, and each particle shrinks/fades as it settles. The ball and glass reveal together over the final 37% of a 2.35-second transition, with continuous target rotation and existing deferred maintenance.
-
-Validation: `tests/planet-staging-smoke.py` checks all ten drag entries and rapid reversal; `tests/reassembly-smoke.py` checks frame timing, solid reveal, moving pose, light continuity and deferred resource work through three editions. `tests/transition-smoke.py` covers cancellation, repeated taps and reduced motion. Local Edge mobile viewport is covered; iPhone Safari hardware timing is not measured.
+验证：构建与类型检查，粒子恢复/取消单元测试，`tests/transition-smoke.py` 的连点与减少动态效果检查，`tests/orbit-smoke.py` 的长按/拖动检查。手机 Safari 尚未实机验证。

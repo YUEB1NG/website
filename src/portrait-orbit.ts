@@ -1,4 +1,3 @@
-import * as THREE from 'three';
 // Portraits remain outside the planet's optical capture, with real scene depth.
 export const PORTRAIT_LAYER=1;
 const tau=Math.PI*2;
@@ -18,18 +17,4 @@ export function portraitOrbit(phase:number){
   const a=(lo+(distance-lengths[lo])/(lengths[hi]-lengths[lo]))/steps*tau;
   const sin=Math.sin(a),near=(1-sin)/2;
   return {x:Math.cos(a)*radius,y:sin*radius*rise,z:-sin*radius*depth,size:.29+.14*near};
-}
-
-const fromDirection=new THREE.Vector3(),toDirection=new THREE.Vector3();
-const arc=new THREE.Quaternion(),turn=new THREE.Quaternion();
-/** Follow an exterior arc instead of cutting a straight chord through the planet. */
-export function orbitApproach(from:THREE.Vector3,to:THREE.Vector3,blend:number,out:THREE.Vector3){
-  if(blend<=0)return out.copy(from);
-  if(blend>=1)return out.copy(to);
-  const fromRadius=from.length(),toRadius=to.length();
-  fromDirection.copy(from).divideScalar(Math.max(fromRadius,1e-6));
-  toDirection.copy(to).divideScalar(Math.max(toRadius,1e-6));
-  arc.setFromUnitVectors(fromDirection,toDirection);
-  turn.identity().slerp(arc,blend);
-  return out.copy(fromDirection).applyQuaternion(turn).multiplyScalar(THREE.MathUtils.lerp(fromRadius,toRadius,blend));
 }
