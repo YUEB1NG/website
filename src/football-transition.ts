@@ -1,14 +1,5 @@
 import * as THREE from 'three';
 
-// One shared clock controls GPU travel, particle fade, solid and glass.
-export const morphTiming={gatherStart:0,gatherEnd:.74,maxDelay:.055,revealStart:.77,revealEnd:1} as const;
-export function morphFrame(t:number){
- const p=THREE.MathUtils.clamp((t-morphTiming.maxDelay)/(1-morphTiming.maxDelay),0,1);
- const landing=THREE.MathUtils.smootherstep(p,morphTiming.gatherStart,morphTiming.gatherEnd);
- const reveal=landing===1?THREE.MathUtils.smootherstep(t,morphTiming.revealStart,morphTiming.revealEnd):0;
- const outgoing=1-THREE.MathUtils.smootherstep(t,0,.18);
- return {landing,reveal,outgoing,particleOpacity:THREE.MathUtils.smootherstep(t,0,.10)*(1-reveal)};
-}
 type Surface={positions:Float32Array;colors:Float32Array};
 const count=1500;
 type Triangles={areas:Float64Array;total:number};
@@ -112,21 +103,16 @@ export function createFootballParticles(){
     const scatter=new Float32Array(count*3),delay=new Float32Array(count);
     for(let i=0;i<count;i++){
       const a=i*2.399963229728653,y=1-2*(i+.5)/count,r=Math.sqrt(1-y*y),spread=1.65+((i*37)%101)/101*.55;
-      scatter.set([Math.cos(a)*r*spread,y*1.55,Math.sin(a)*r*spread],i*3);delay[i]=(i%17)/17*morphTiming.maxDelay;
+      scatter.set([Math.cos(a)*r*spread,y*1.55,Math.sin(a)*r*spread],i*3);delay[i]=(i%17)/17*.055;
     }
     const geometry=new THREE.BufferGeometry();
     geometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array(count*3),3));geometry.setAttribute('destination',new THREE.BufferAttribute(new Float32Array(count*3),3));geometry.setAttribute('scatter',new THREE.BufferAttribute(scatter,3));geometry.setAttribute('color',new THREE.BufferAttribute(new Float32Array(count*3),3));geometry.setAttribute('targetColor',new THREE.BufferAttribute(new Float32Array(count*3),3));geometry.setAttribute('delay',new THREE.BufferAttribute(delay,1));
-    const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,vertexColors:true,uniforms:{progress:{value:0},reveal:{value:0},pointSize:{value:3},opacity:{value:0},destinationMatrix:{value:new THREE.Matrix4()}},
-      vertexShader:`attribute vec3 destination;attribute vec3 scatter;attribute vec3 targetColor;attribute float delay;uniform float progress;uniform float reveal;uniform float pointSize;uniform mat4 destinationMatrix;varying vec3 vTint;varying float vCoverage;
+    const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,vertexColors:true,uniforms:{progress:{value:0},pointSize:{value:3},opacity:{value:0},destinationMatrix:{value:new THREE.Matrix4()}},
+      vertexShader:`attribute vec3 destination;attribute vec3 scatter;attribute vec3 targetColor;attribute float delay;uniform float progress;uniform float pointSize;uniform mat4 destinationMatrix;varying vec3 vTint;varying float vCoverage;
         float smoother(float a,float b,float x){float t=clamp((x-a)/(b-a),0.,1.);return t*t*t*(t*(t*6.-15.)+10.);}
-        void main(){float p=clamp((progress-delay)/(1.-delay),0.,1.);
-        vec3 landing=(destinationMatrix*vec4(destination,1.)).xyz;
-        float travel=smoother(0.,${morphTiming.gatherEnd},p);
-        vec3 base=mix(position,landing,travel);
-        vec3 outward=normalize(position+landing+vec3(.0001));
-        float lift=sin(3.14159265*travel);
-        vec3 tangent=vec3(-outward.z,0.,outward.x);
-        vec3 pos=base+outward*lift*(1.15+length(scatter)*.12)+tangent*sin(6.2831853*travel)*lift*.10;vTint=mix(color,targetColor,smoother(.25,.78,p));vCoverage=1.;gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.);gl_PointSize=pointSize*(.8+.2*sin(delay*70.))*mix(1.,.42,reveal);}`,
+        void main(){float p=clamp((progress-delay)/(1.-delay),0.,1.);float outT=clamp(p/.32,0.,1.);outT=1.-pow(1.-outT,3.);float inT=smoother(.22,.94,p);
+        vec3 cloud=scatter;float swirl=sin(p*3.14159265)*.18;cloud.x+=sin(scatter.z*2.+p*5.)*swirl;cloud.y+=cos(scatter.x*3.+p*4.)*swirl;
+        vec3 landing=(destinationMatrix*vec4(destination,1.)).xyz;vec3 pos=mix(mix(position,cloud,outT),landing,inT);vTint=mix(color,targetColor,smoother(.25,.78,p));float settled=smoother(.74,.98,inT);vCoverage=1.-settled;gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.);gl_PointSize=pointSize*(.8+.2*sin(delay*70.))*mix(1.,.42,settled);}`,
       fragmentShader:`uniform float opacity;varying vec3 vTint;varying float vCoverage;void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;gl_FragColor=vec4(vTint,opacity*vCoverage*(1.-smoothstep(.2,.5,d)));
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -161,7 +147,7 @@ export class FootballTransition {
     for(const [name,values] of Object.entries({position:from.positions,destination:to.positions,color:from.colors,targetColor:to.colors})){
       const attribute=this.points.geometry.getAttribute(name) as THREE.BufferAttribute;(attribute.array as Float32Array).set(values);attribute.needsUpdate=true;
     }
-    this.points.material.uniforms.progress.value=0;this.points.material.uniforms.reveal.value=0;this.points.material.uniforms.opacity.value=0;
+    this.points.material.uniforms.progress.value=0;this.points.material.uniforms.opacity.value=0;
     const remember=(object:THREE.Object3D,map:typeof this.outgoing)=>object.traverseVisible(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])if(!map.has(m)){map.set(m,{opacity:m.opacity});}});
     remember(root,this.outgoing);remember(target,this.incoming);
     this.incoming.forEach((_,m)=>m.opacity=0);
@@ -173,10 +159,8 @@ export class FootballTransition {
     if(!reduced)this.target.rotation.y+=dt*.08;
     this.target.updateMatrix();this.points.material.uniforms.destinationMatrix.value.copy(this.target.matrix);
     this.points.material.uniforms.progress.value=t;this.points.material.uniforms.pointSize.value=Math.min(5,radius*.05)*pixelRatio;
-    const frame=morphFrame(t);
-    this.points.material.uniforms.reveal.value=frame.reveal;
-    this.points.material.uniforms.opacity.value=frame.particleOpacity;
-    const old=frame.outgoing,next=frame.reveal;
+    this.points.material.uniforms.opacity.value=THREE.MathUtils.smootherstep(t,0,.10)*(1-THREE.MathUtils.smootherstep(t,.86,1));
+    const old=1-THREE.MathUtils.smootherstep(t,0,.18),next=THREE.MathUtils.smootherstep(t,.60,.97);
     this.outgoing.forEach((base,m)=>{m.opacity=base.opacity*old;if(m instanceof THREE.ShaderMaterial&&m.uniforms.opacity)m.uniforms.opacity.value=m.opacity;});this.incoming.forEach((base,m)=>m.opacity=base.opacity*next);
     this.sources.forEach((o,i)=>o.visible=this.sourceVisibility[i]&&old>0);this.target.visible=next>0;
     return t===1;
@@ -185,7 +169,7 @@ export class FootballTransition {
     for(const cache of [this.outgoing,this.incoming])cache.forEach((base,m)=>{Object.assign(m,base);if(m instanceof THREE.ShaderMaterial&&m.uniforms.opacity)m.uniforms.opacity.value=base.opacity;});
     this.sources.forEach((o,i)=>o.visible=this.sourceVisibility[i]);this.points.removeFromParent();this.target.removeFromParent();this.target.visible=true;
   }
-  get landingMix(){return morphFrame(this.age/this.duration).landing;}
-  get surfacePresence(){const frame=morphFrame(this.age/this.duration);return frame.outgoing+frame.reveal;}
-  get diagnostics(){return {surfacePresence:this.surfacePresence,solidOpacity:morphFrame(this.age/this.duration).reveal,particleOpacity:this.points.material.uniforms.opacity.value,allParticlesLanded:morphFrame(this.age/this.duration).landing===1,landingMix:this.landingMix,targetAngle:this.target.rotation.y,progress:this.age/this.duration,particles:count,sourceCount:this.sources.length,sourceVisible:this.sources.filter(o=>o.visible).length,targetVisible:this.target.visible};}
+  get landingMix(){return THREE.MathUtils.smootherstep(this.age/this.duration,.30,.76);}
+  get surfacePresence(){const t=this.age/this.duration;return 1-THREE.MathUtils.smootherstep(t,0,.18)+THREE.MathUtils.smootherstep(t,.60,.97);}
+  get diagnostics(){return {surfacePresence:this.surfacePresence,solidOpacity:THREE.MathUtils.smootherstep(this.age/this.duration,.60,.97),landingMix:this.landingMix,targetAngle:this.target.rotation.y,progress:this.age/this.duration,particles:count,sourceCount:this.sources.length,sourceVisible:this.sources.filter(o=>o.visible).length,targetVisible:this.target.visible};}
 }

@@ -28,10 +28,6 @@ export class Planets {
   private coverTextures=new Map<HTMLImageElement,THREE.Texture>();
   private coverUploads=0;
   private coverUploadsDuringMorph=0;
-  private orbitOrigins:THREE.Vector3[]=[];
-  private orbitPhases:number[]=[];
-  private orbitDirection=0;
-  private orbitStartBlend=0;
   private pendingCovers=new Map<number,THREE.Texture>();
   private coverSwapAges:number[]=Array(COVER_SLOTS).fill(1);
   private charmMaps:StickerPools={planet:[],stranger:[],football:[]};
@@ -318,11 +314,6 @@ export class Planets {
   private removeBurst(b:Burst){this.scene.remove(b.sprite);b.sprite.material.dispose();this.bursts.splice(this.bursts.indexOf(b),1);}
   render(x:number,y:number,radius:number,mix:number,dt:number,reduced:boolean,day:boolean,orbitMix:number,particles:ParticleFrame[],dragging=false){
     const w=this.canvas.parentElement!.clientWidth,h=this.canvas.parentElement!.clientHeight;
-    const delta=orbitMix-this.orbitMix;
-    const direction=Math.abs(delta)>1e-7?Math.sign(delta):this.orbitDirection;
-    const beginMotion=direction!==this.orbitDirection;
-    const gathering=direction>0;
-    if(beginMotion){this.orbitStartBlend=orbitMix;this.orbitDirection=direction;}
     setCoverMotionBusy(!!this.footballTransition||this.pendingFootball||(orbitMix>.001&&orbitMix<.999));
     this.orbitMix=orbitMix;this.surfaceMix=mix;
     if(this.viewport!==`${w}/${h}`){this.viewport=`${w}/${h}`;this.renderer?.setSize(w,h,false);}
@@ -342,21 +333,9 @@ export class Planets {
       return age<.3?1-smooth(age/.3):smooth(Math.min(1,(age-.3)/.3));
     });
     const count=this.orbitSprites.length,blend=smooth(orbitMix);
-    if(beginMotion){
-      // Capture each visible start once; the hidden flight must not drag its
-      // gathering path away. Preserve circular order to avoid crossing paths.
-      const starts=this.orbitSprites.map((sprite,i)=>{const p=particles[i];const v=sprite.visible?sprite.position.clone():new THREE.Vector3(((p?.x??x)-w/2)/radius,(h/2-(p?.y??y))/radius,-2);this.orbitOrigins[i]=v.sub(this.group.position);return {i,angle:Math.atan2(v.y,v.x)};}).sort((a,b)=>a.angle-b.angle);
-      const slots=starts.map((_,i)=>{const phase=i/count*Math.PI*2,slot=portraitOrbit(phase+this.orbitAngle);return {phase,angle:Math.atan2(slot.y,slot.x)};}).sort((a,b)=>a.angle-b.angle);
-      if(gathering)starts.forEach((start,i)=>this.orbitPhases[start.i]=slots[i].phase);
-    }
-    this.orbitSprites.forEach((sprite,i)=>{const p=particles[i],slot=portraitOrbit((this.orbitPhases[i]??i/count*Math.PI*2)+this.orbitAngle);const orbital=this.orbitalPosition.set(slot.x,slot.y,slot.z);const natural=this.naturalPosition.set(((p?.x??x)-w/2)/radius,(h/2-(p?.y??y))/radius,-2).sub(this.group.position);
-      // A direction change starts at the displayed position, including an
-      // interrupted long press. Free flight still owns its independent screen path.
-      if(this.orbitOrigins[i]&&orbitMix>.001){
-        if(gathering){const t=smooth(THREE.MathUtils.clamp((orbitMix-this.orbitStartBlend)/Math.max(.00001,1-this.orbitStartBlend),0,1));orbitApproach(this.orbitOrigins[i],orbital,t,sprite.position);}
-        else{const t=smooth(THREE.MathUtils.clamp(orbitMix/Math.max(.00001,this.orbitStartBlend),0,1));orbitApproach(natural,this.orbitOrigins[i],t,sprite.position);}
-      }else sprite.position.copy(natural);
-      sprite.position.add(this.group.position);sprite.visible=i<count&&mix>.5&&((!!p?.visible&&!reduced)||orbitMix>.005);sprite.material.opacity=coverOpacity[i]??1;sprite.userData.pop=Math.max(0,(sprite.userData.pop??0)-dt*1.8);const pop=1+Math.sin((sprite.userData.pop??0)*Math.PI)*.3;const size=THREE.MathUtils.lerp((p?.visible?p.size:0)/radius,slot.size,blend);sprite.scale.setScalar(Math.max(.001,size)*pop);
+    this.orbitSprites.forEach((sprite,i)=>{const p=particles[i],slot=portraitOrbit(i/count*Math.PI*2+this.orbitAngle);const orbital=this.orbitalPosition.set(slot.x,slot.y,slot.z);const natural=this.naturalPosition.set(((p?.x??x)-w/2)/radius,(h/2-(p?.y??y))/radius,-2).sub(this.group.position);
+      // Keep one sprite on a continuous exterior arc for both gathering and release.
+      orbitApproach(natural,orbital,blend,sprite.position).add(this.group.position);sprite.visible=i<count&&mix>.5&&((!!p?.visible&&!reduced)||orbitMix>.005);sprite.material.opacity=coverOpacity[i]??1;sprite.userData.pop=Math.max(0,(sprite.userData.pop??0)-dt*1.8);const pop=1+Math.sin((sprite.userData.pop??0)*Math.PI)*.3;const size=THREE.MathUtils.lerp((p?.visible?p.size:0)/radius,slot.size,blend);sprite.scale.setScalar(Math.max(.001,size)*pop);
     });
     for(const b of [...this.bursts]){
       b.age+=dt;if(b.age<0)continue;if(b.age>b.life){this.removeBurst(b);continue;}

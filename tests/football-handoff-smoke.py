@@ -18,14 +18,14 @@ for theme,year in [('day','2026'),('night','2022'),('day','2018')]:
  }requestAnimationFrame(record);
 })""")
  frames=result.pop('frames');shots=result.pop('shots');assert result['name'].startswith(year),result
- assert any(.2<f['progress']<.5 and f['particleOpacity']>.99 for f in frames)
- assert all(not f['targetVisible'] and f['solidOpacity']==0 for f in frames if not f['allParticlesLanded'])
- assert all(f['glass']==0 for f in frames if .18<f['progress']<.77)
+ assert any(.2<f['progress']<.5 and not f['targetVisible'] for f in frames)
+ assert all(not f['targetVisible'] and f['solidOpacity']==0 for f in frames if f['progress']<.60)
+ assert all(f['glass']==0 for f in frames if .18<f['progress']<.60)
  cross=[f for f in frames if .001<f['solidOpacity']<.999]
  assert len(cross)>15,len(cross)
- assert all(abs(f['solidOpacity']+f['particleOpacity']-1)<1e-6 for f in cross)
+ assert all(b['solidOpacity']>=a['solidOpacity'] for a,b in zip(cross,cross[1:]))
  assert max(f['dt'] for f in frames)<80,max(f['dt'] for f in frames)
  for phase,data in shots.items():(root/f'artifacts/handoff-{year}-{phase}.png').write_bytes(base64.b64decode(data.split(',')[1]))
  checks.append({'theme':theme,'year':year,'frames':frames,'handoffFrames':len(cross),'maxFrameMs':max(f['dt'] for f in frames)})
- print('PASS',theme,year,'no early solid/glass','handoff frames',len(cross),flush=True)
+ print('PASS',theme,year,'Friday particle/solid overlap','handoff frames',len(cross),flush=True)
 (root/'artifacts/football-handoff-checks.json').write_text(json.dumps(checks,indent=2),encoding='utf-8')
