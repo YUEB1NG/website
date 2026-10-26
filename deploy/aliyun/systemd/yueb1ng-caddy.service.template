@@ -1,0 +1,19 @@
+[Unit]
+Description=YUEB1NG HTTPS reverse proxy
+After=network-online.target yueb1ng.service
+Wants=network-online.target
+[Service]
+User=admin
+Environment=HOME=@HOME@
+Environment=XDG_DATA_HOME=@DATA@/caddy-data
+Environment=XDG_CONFIG_HOME=@DATA@/caddy-config
+ExecStart=@CADDY@ run --config @HOME@/yueb1ng-config/Caddyfile --adapter caddyfile
+ExecReload=@CADDY@ reload --config @HOME@/yueb1ng-config/Caddyfile --adapter caddyfile
+Restart=on-failure
+RestartSec=5
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+PrivateTmp=true
+[Install]
+WantedBy=multi-user.target

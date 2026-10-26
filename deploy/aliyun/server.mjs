@@ -1,0 +1,33 @@
+import {createServer} from 'node:http';
+import {readFile,stat} from 'node:fs/promises';
+import {resolve,extname,sep} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {Readable} from 'node:stream';
+import worker from '../../dist/server/index.js';
+import {FileBucket} from './storage.mjs';
+
+const root=resolve(fileURLToPath(new URL('../../dist/client/',import.meta.url)));
+const data=resolve(process.env.YUEB1NG_DATA_DIR||fileURLToPath(new URL('../../.tools/aliyun-data/',import.meta.url)));
+const port=Number(process.env.PORT||3000),host=process.env.HOST||'127.0.0.1';
+const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.woff2':'font/woff2','.woff':'font/woff'};
+const assets={async fetch(request){
+ const url=new URL(request.url);let name;
+ try{name=decodeURIComponent(url.pathname);}catch{return new Response('Bad request',{status:400});}
+ if(name.includes('\\')||name.includes('\0'))return new Response('Bad request',{status:400});
+ const target=resolve(root,'.'+(name==='/'?'/index.html':name));
+ if(target!==root&&!target.startsWith(root+sep))return new Response('Not found',{status:404});
+ try{
+  if(!(await stat(target)).isFile())return new Response('Not found',{status:404});
+  const bytes=await readFile(target);return new Response(request.method==='HEAD'?null:bytes,{headers:{'Content-Type':types[extname(target).toLowerCase()]||'application/octet-stream','X-Content-Type-Options':'nosniff','Cache-Control':name.startsWith('/assets/')?'public, max-age=31536000, immutable':'public, max-age=3600'}});
+ }catch(e){if(e.code==='ENOENT'||e.code==='EISDIR')return new Response('Not found',{status:404});throw e;}
+}};
+const env={BUCKET:new FileBucket(data),ASSETS:assets};
+const server=createServer(async(req,res)=>{
+ try{
+  if(!['GET','HEAD'].includes(req.method)){res.writeHead(405,{Allow:'GET, HEAD'});res.end();return;}
+  const request=new Request(new URL(req.url||'/',`http://${host}:${port}`),{method:req.method,headers:req.headers});
+  const response=await worker.fetch(request,env);res.writeHead(response.status,Object.fromEntries(response.headers));
+  if(response.body&&req.method!=='HEAD')Readable.fromWeb(response.body).pipe(res);else res.end();
+ }catch(error){console.error('Request failed:',error.message);if(!res.headersSent)res.writeHead(500);res.end('Internal server error');}
+});
+server.listen(port,host,()=>console.log(`YUEB1NG listening on ${host}:${port}`));

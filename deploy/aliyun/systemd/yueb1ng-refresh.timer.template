@@ -1,0 +1,9 @@
+[Unit]
+Description=Refresh YUEB1NG playlist at midnight in Shanghai
+[Timer]
+OnCalendar=*-*-* 00:00:00 Asia/Shanghai
+Persistent=true
+AccuracySec=1s
+Unit=yueb1ng-refresh.service
+[Install]
+WantedBy=timers.target

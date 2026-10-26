@@ -1,0 +1,12 @@
+[Unit]
+Description=Refresh YUEB1NG playlist
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+User=admin
+WorkingDirectory=@RELEASE@
+Environment=YUEB1NG_DATA_DIR=@DATA@
+ExecStart=@NODE@ @RELEASE@/deploy/aliyun/refresh.mjs
+NoNewPrivileges=true
+PrivateTmp=true
