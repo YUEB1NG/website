@@ -1,56 +1,86 @@
+<p align="center"><img src="docs/brand/cover-ai-20261026.png" width="100%" alt="YUEB1NG 个人主页概念封面" /></p>
+
+<p align="center"><b>简体中文</b> · <a href="README.en.md">English</a></p>
+
 # website · YUEB1NG
 
-保留 quattro4maggi Wabi 主界面、imdaryl 蓝图开屏和 ped.ro 文字布局，隐藏区域恢复柔和文字模糊。公网地址：https://yueb1ng-wabi.quyue.chatgpt.site 。
+**把星球 音乐和足球放进同一个交互场景**
 
-## 启动与构建
+一个基于 TypeScript、Three.js 和 Cloudflare Worker 的个人主页：从蓝图开屏进入玻璃星球，在同一场景里探索音乐封面轨道、足球粒子重组、文字揭示与日夜主题。
 
-```text
-npm install
+[在线体验](https://yueb1ng-wabi.quyue.chatgpt.site/) · [交互细节](docs/INTERACTIONS.zh-CN.md) · [后端与部署](docs/DEPLOY.md) · [贡献说明](CONTRIBUTING.md) · [素材来源](SOURCES.md)
+
+封面是 AI 概念插图；下面是实际公网页面截图。插图不代表额外功能、精确模型或截图。
+
+![公网桌面截图](docs/images/live-desktop.png)
+
+## 快速开始
+
+使用 Node.js 24 或更新的受支持版本，在项目目录运行：
+
+```sh
+git clone https://github.com/YUEB1NG/website.git
+cd website
+npm ci
 npm run dev
-npm run build
 ```
 
-## 交互
+打开终端显示的地址，默认 `http://127.0.0.1:5173`。首次加载需要准备字体和图形资源；浏览器需要支持 WebGL，减少动态效果模式提供简化交互。
 
-- 上拖底部透明圈、点击 Start / 圆圈，或 Enter / ↑ 进入。点击星体回到透明圈，再次点击依次探索八大行星、月球和太阳。
-- 全部星体恢复上一版写实纹理、地球云层／夜景灯光及原生星环，以 0.045 rad/s 缓慢自转。长按 550ms 或按 O，将同一组头像连续移入水平椭圆轨道；再次长按释放。前排从球体下半部经过，后排从上方绕回；按投影弧长均匀排布，近处稍大、远处稍小，原生星环入轨时退场。
-- 点击隐藏姓名，随机3–6秒后显示头像和悦饼，之后每次重新随机3–6秒在英文名与头像／悦饼之间切换。首次主题跟随系统；头像切换白天／动态星空并保存手动选择。悦饼为普通文字，月饼点击效果已删除。日夜头像外框使用同样的2px留白，底色跟随页面。
-- 点击 like，使用提前准备的足球；球体爆炸为1500个表面粒子，再重组成足球，完整过渡约2.15秒；玻璃随实体一同淡出和恢复。重组期间足球与目标粒子持续同步自转，灯光和倾角渐变衔接，模型清理与下一款预加载避开过渡及结束后的1秒。下一款历届世界杯球形足球：1930–2026 每届代表款及1930两种决赛用球，共24款，按年份从近到远：2026 Trionda → 2022 Al Rihla → … → 1930，1930两款保留独立条目。它们是参照实物的原创风格化模型，并非官方纹理或精确工业模型。
-- There 是普通文字，点击奖杯效果已移除。
-- everything 保持普通文字，无点击特效。
-- 点击漂浮或入轨的小图标，会随机弹出3–6张贴纸，方向、尺寸、初速度与散开距离独立随机，以较宽的礼花弧线散开，末段持续运动并渐隐，不在终点停住。星球状态按星球50／怪奇物语30／足球20抽取；足球状态按足球66／星球15／怪奇物语18归一化抽取。图集保留透明背景和原始宽高比，同一轮不重复选取同一张贴纸。键盘可通过 Celebrate 按钮操作。
-- 隐藏区域使用5px文字模糊，比原先4px稍强；点击后1秒柔和揭开，文字本身点击前静止。Learn 点击1秒后变为Build，之后每2222毫秒切换一次Build／Share／Learn，淡出／淡入各0.3秒包含在计时内。整词固定宽度，不拆字。
-- 下拖时 X 链接随手势提前淡出，避免被三行文字覆盖。全页禁用长按文字复制菜单。
-- 系统减少动态效果会停下旋转和循环、跳过足球粒子过渡，贴纸静态显现；姓名延迟随机3–6秒、Learn延迟1秒单次显示，保留点击操作。
+```sh
+npm run build
+npm run preview
+```
 
-## 当前素材边界
+前端产物在 `dist/client/`，后端 Worker 在 `dist/server/`。生产预览与开发服务器均可独立运行。Windows 可在构建后运行 `python -X utf8 run-local.py` 启动独立预览，再用 `python -X utf8 run-local.py --stop` 停止同一项目进程。
 
-- 漂浮图片来自网易云歌单 `7592316248`，当前包含130首歌、129种封面；每次访问随机20–25个显示位，尽量避开同屏图片和最近55张。封面数据更新说明见 [docs/playlist-refresh.md](docs/playlist-refresh.md)。
-- 指定小红书笔记短链接连接失败，未读取或复制其中的头衔图标。Google 世界杯决赛 Doodle 已作视觉参考，新增图标是原创矢量素材。
+## 怎么玩
 
-## 文件与验证
+| 操作 | 结果 |
+| --- | --- |
+| 上拖透明圈、点击 Start，或按 Enter / ↑ | 进入场景 |
+| 点击星体 | 返回透明圈，再次进入时探索下一个星体 |
+| 长按 550 ms 或按 O | 将同一组封面移入或释放椭圆轨道 |
+| 点击 like | 通过粒子重组切换历届世界杯风格足球 |
+| 点击姓名与 Learn | 揭示文字或切换 Learn / Build / Share |
+| 点击头像 | 切换并保存手动日夜主题 |
+| 点击漂浮封面或 Celebrate | 弹出贴纸 |
+| Escape 或返回按钮 | 退出或返回 |
 
-`src/main.ts` 管理手势和文字；`scene.ts` 保留星空／棱镜并计算漂浮路径；`planets.ts` 在同一个 Three.js 场景渲染星体和头像；`football.ts`、`football-transition.ts`、`portrait-orbit.ts`、`stickers.ts` 分别提供足球、粒子重组、椭圆轨道和贴纸。透明圈与星体共用球心和半径，通过材质渐变衔接。
+每次访问随机显示 20–25 个音乐封面，选择时排除同屏、待显示与近期使用的相同封面。球体、轨道、文字和粒子均遵循系统减少动态效果设置。更多行为与历史调整见 [交互记录](docs/INTERACTIONS.zh-CN.md)。
 
-`python -X utf8 tests/browser-smoke.py` 执行当前完整交互检查（需先连接 agent-browser）；`tests/orbit-smoke.py` 检查长按与拖拽手势。截图和验证记录放在忽略目录 `artifacts/`。真实 iPhone Safari 尚未实机验证。
+<details>
+<summary>实际手机视口截图</summary>
 
-## 本地独立运行
+![公网手机视口截图](docs/images/live-mobile.png)
 
-项目位于 `D:\Projects\yueb1ng-wabi`，使用独立安装的 `D:\nodejs\node.exe`。`python -X utf8 run-local.py` 启动独立预览进程；关闭终端或桌面应用不会终止该进程。`python -X utf8 run-local.py --stop` 停止本项目的预览。日志和 PID 只放在项目 `artifacts/` 目录中。
+这是 Chromium 手机视口检查，不等于 iPhone Safari 或 Android 真机验收。
 
-前端静态产物在 `dist/client/`；`dist/server/` 是处理歌单及封面 API 的 Cloudflare Worker。网站运行不依赖本机或 Codex 进程。独立部署需要自行配置 R2 的 `BUCKET` 绑定及 `PLAYLIST_UPDATER_TOKEN` 密钥；不要将密钥提交到仓库。`.openai/hosting.json` 是现有 Sites 发布配置，完整 Git 历史也保留在本仓库中。
+</details>
 
-玻璃有两束独立游动的柔光，慢速与不同轨迹，不绑定模型旋转；减弱色散与拖动弹性。回到透明圈后停止隐藏的 Three.js 绘制，Three.js 可用时不再上传冗余二维粒子画布。
+## 歌单与后端
 
-## 地区社交入口
+| 接口 | 用途 |
+| --- | --- |
+| `GET /api/playlist` | 读取 R2 中保存的完整快照，首次使用内置种子 |
+| `GET /api/covers/{songId}` | 从白名单来源读取并缓存已知歌曲的封面 |
+| `POST /api/playlist/refresh` | 验证服务端密钥后更新完整歌单，不接受不完整结果覆盖 |
 
-浏览器通过开源 [Country](https://github.com/lineofflight/country) 的公开 IP-to-country 服务判断出口 IP 地区，失败时回退 [IP.SB](https://ip.sb/api/)；每个服务最多等待1.6秒，不申请设备定位权限。CN 显示用户提供的抖音短链接，其余地区或两次查询都失败时保留 X。仅在当前标签页缓存国家代码5分钟，不保存或记录 IP。VPN/代理可能改变判定地区；真实中国大陆网络可达性尚未实测。
+独立托管需要配置 Cloudflare R2 的 `BUCKET` 绑定，以及平台密钥 `PLAYLIST_UPDATER_TOKEN`。密钥不进入源码、前端或 URL。静态服务可以展示前端及本地封面回退，完整歌单 API 需要 Worker。[部署说明](docs/DEPLOY.md) · [刷新行为](docs/playlist-refresh.md)
 
-两个地区均显示 Follow on 与 @YUEB1NG，只切换平台图标和对应链接。底部使用用户提供的 X／抖音 SVG，通过 currentColor 跟随日夜主题；首次判定后再沿用原来的淡入，避免先显示 X 再闪成抖音。网络恢复后重新判断，切换时文字和图标一起平滑淡出／淡入。链接及样式位于 src/regional-social.ts。
+每日刷新还需要独立调度器调用受保护接口；仓库包含刷新实现，不表示任意新部署已自动启用调度。上游接口与封面资源可能变化，失败时保留最后成功快照。
 
+## 开发检查
 
-### 当前动画回退记录
+```sh
+npm run build
+node --test tests/playlist.test.mjs tests/football-handoff.test.mjs tests/cover-picker.test.mjs tests/entrance.test.mjs
+```
 
-2026-10-25 按要求分别恢复这两处动画各自上一次不同的实现：足球粒子重组来自 `130901e`，持续2.15秒，实体与玻璃在最后16%渐入；封面入轨的位置计算来自 `3461907`，沿原有直接插值路径聚拢到椭圆轨道。封面数量、随机选图、预加载、日夜模式和其他功能保留。
+2026-10-26：构建及上述 11 项单元测试通过；公网 1440 px 与 393 px 视口进入场景、截图及布局检查通过，未观察到页面脚本错误。减少动态效果、连点、轨道和全部历史交互的专门检查见 tests；本次仓库整理没有改动这些实现。
 
-验证：构建与类型检查，粒子恢复/取消单元测试，`tests/transition-smoke.py` 的连点与减少动态效果检查，`tests/orbit-smoke.py` 的长按/拖动检查。手机 Safari 尚未实机验证。
+## 来源与边界
+
+项目参考 Wabi、imdaryl、ped.ro、React Bits 和 Three.js，保留 [SOURCES.md](SOURCES.md) 与已有许可。星球贴图、字体、音乐封面、照片与第三方素材各自保留权利，公开仓库不将它们统一改为 MIT。[素材与许可说明](docs/ASSET-NOTICES.md)
+
+公网网站由托管平台运行，不依赖本机终端或本次编辑会话持续开启。真实手机、GPU 性能与不同网络条件仍需分别验证。
