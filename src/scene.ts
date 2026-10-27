@@ -40,8 +40,9 @@ export class Scene {
       images.forEach((image,index)=>{
         this.particles.push({image,progress:0,delay:index*200,speed:.000252*(.5+Math.random()*1.3),x:0,y:0,endX:0,endY:0});
         this.particleFrames.push({x:0,y:0,size:0,visible:false});
+        this.reset(this.particles[this.particles.length-1]);
       });
-    });
+    }).catch(()=>{});
     onFloatingCovers(({images})=>this.particles.forEach((p,i)=>p.image=images[i]));
     try { if(this.gl) this.initialize(); else this.enableFallback(); }
     catch(error){console.error('Wabi WebGL initialization:',error); this.gl=null;this.enableFallback();}

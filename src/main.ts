@@ -1,8 +1,7 @@
-import { startCoverUpdates, setCoverOrbitMode } from './assets';
+import { startCoverUpdates, setCoverOrbitMode, loadFloatingCovers } from './assets';
 import { entranceState } from './entrance';
-import './style.css';
 import { Scene } from './scene';
-import { Blueprint } from './blueprint';
+import { opening as blueprint } from './blueprint';
 import { Planets, planetNames } from './planets';
 import { syncTheme, toggleTheme } from './theme';
 import { revealCycle, RandomNameCycle } from './reveal-cycle';
@@ -14,7 +13,8 @@ initRegionalSocial(social);
 const media=matchMedia('(prefers-reduced-motion: reduce)');
 const scene=new Scene($<HTMLCanvasElement>('#scene'));
 const planets=new Planets();
-let entryAge=0,socialAlpha=0,pressedParticle:number|null=null,lastObjectName='';
+const registration=document.querySelector<HTMLAnchorElement>('#registration');
+let entryAge=0,socialAlpha=0,registrationAlpha=0,socialAge=0,pressedParticle:number|null=null,lastObjectName='';
 const caption=$('#object-caption');
 let planetIndex=2,hasEntered=false,queuedEntry=false,nameUnlocked=false,wordUnlocked=false;
 let orbit=false,holdTimer:ReturnType<typeof setTimeout>|undefined,held=false;
@@ -29,7 +29,7 @@ let last=performance.now(),elapsed=0,wordStarted=0,downX=0,downY=0,fromY=0,moved
 let flipIndex=0,pressedOrb=false;
 const words=['Learn','Build','Share'];
 const flipWord=$('#flip-word');
-const blueprint=new Blueprint(()=>{app.dataset.state=active?'revealed':'rest';app.inert=false;syncTheme();status.textContent='Swipe up or press Enter to start.';});
+window.addEventListener('wabi:opening-finished',()=>{app.dataset.state=active?'revealed':'rest';app.inert=false;syncTheme();status.textContent='Swipe up or press Enter to start.';});
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
 
 function setWord(word:string){
@@ -52,7 +52,7 @@ function setActive(next:boolean){
   if(!next){orbit=false;setCoverOrbitMode(false);orb.setAttribute('aria-pressed','false');clearHold();planets.cancelFootball();}
   $('#back').setAttribute('aria-label',next?'Back to start':'Replay opening animation');
   $('#back').setAttribute('title',next?'Back to start':'Replay opening animation');
-  if(changed){entryAge=0;socialAlpha=0;wordStarted=0;flipIndex=0;setWord(words[0]);resetName();wordUnlocked=false;resetReveals();}
+  if(changed){entryAge=0;socialAlpha=0;registrationAlpha=0;socialAge=0;wordStarted=0;flipIndex=0;setWord(words[0]);resetName();wordUnlocked=false;resetReveals();}
   greeting.inert=!next;social.inert=!next;start.inert=next;
   $('#celebrate').inert=!next;
   greeting.style.pointerEvents=next?'auto':'none';social.style.pointerEvents=next?'auto':'none';
@@ -88,6 +88,12 @@ function updateDOM(){
   const clearance=clamp((social.getBoundingClientRect().top-greeting.getBoundingClientRect().bottom-12)/28,0,1);
   const socialOpacity=socialAlpha*(1-pull)*clearance;
   social.style.opacity=String(socialOpacity);social.inert=!active||socialOpacity<.05;social.style.pointerEvents=active&&socialOpacity>.2?'auto':'none';
+  if(registration){
+    const a=registrationAlpha*(1-pull)*clearance;
+    registration.style.opacity=String(a);registration.inert=!active||a<.05;
+    registration.style.pointerEvents=active&&a>.2?'auto':'none';
+    registration.style.top=String(social.offsetTop+social.offsetHeight+8)+'px';
+  }
   caption.style.left=`${x}px`;caption.style.top=`${y+radius+21}px`;caption.style.opacity=String(active?opacity*(1-pull):0);
   swipe.style.opacity=String(clamp((y+radius-(height-200/2.75-30))/30,0,1)*.8);
   return radius;
@@ -147,8 +153,12 @@ media.addEventListener('change',()=>{reduced=media.matches;if(reduced){blueprint
 function tick(now:number){
   const dt=Math.min((now-last)/1000,.032);last=now;elapsed+=dt;
   if(active)entryAge+=dt;
-  const socialTarget=active&&entryAge>1.1&&social.dataset.regionReady==='true'?1:0;socialAlpha=reduced?socialTarget:socialAlpha+(socialTarget-socialAlpha)*(1-Math.exp(-dt*1.8));
-  blueprint.tick(now);
+  const socialTarget=active&&entryAge>1.1&&social.dataset.regionReady==='true'?1:0;
+  socialAge=socialTarget?socialAge+dt:0;
+  const settle=1-Math.exp(-dt*1.8);
+  socialAlpha=reduced?socialTarget:socialAlpha+(socialTarget-socialAlpha)*settle;
+  const registrationTarget=socialTarget&&(reduced||socialAge>.45)?1:0;
+  registrationAlpha=reduced?registrationTarget:registrationAlpha+(registrationTarget-registrationAlpha)*settle;
   if(!reduced){
     // Substeps keep the original stiff spring stable across refresh rates.
     const steps=Math.max(1,Math.ceil(dt/.008)),step=dt/steps;
@@ -190,9 +200,11 @@ function tick(now:number){
 // rAF is suspended by the browser in background tabs; reset timestamps on return.
 document.addEventListener('visibilitychange',()=>{last=performance.now();});
 resize();
-await Promise.all([document.fonts.ready,scene.ready,planets.ready]);
+await planets.ready;
+loadFloatingCovers();
 resize();
-if(!reduced){app.inert=true;blueprint.start();}else{app.dataset.state='rest';$('#blueprint').hidden=true;}
+blueprint.ready=true;
+if(reduced){app.dataset.state='rest';$('#blueprint').hidden=true;app.inert=false;}
 last=performance.now();requestAnimationFrame(tick);startCoverUpdates();
 // Read-only diagnostics used by the browser smoke check.
 Object.defineProperty(window,'wabi',{value:{get state(){return app.dataset.state},get orbit(){return orbit},get renderer(){return scene.renderer},get earth(){return planets.diagnostics},get planet(){return planets.diagnostics},get theme(){return document.documentElement.dataset.theme},get position(){return {x,y,radius:200-150*clamp((height-y)/(height*.6),0,1)}}},writable:false});

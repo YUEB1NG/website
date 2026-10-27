@@ -22,7 +22,7 @@ async function coverImage(cover:Cover):Promise<HTMLImageElement>{
  const key=coverKey(cover);
  const hit=cache.get(key);if(hit){cache.delete(key);cache.set(key,hit);return hit;}
  const result=(async()=>{
-  const image=new Image();image.crossOrigin='anonymous';
+  const image=new Image();image.crossOrigin='anonymous';image.fetchPriority='low';
   await new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Cover timeout')),12000);image.onload=()=>{clearTimeout(timer);resolve()};image.onerror=()=>{clearTimeout(timer);reject(new Error('Cover failed'))};image.src=local.get(key)??cover.src;});
   await waitForQuiet();
   const canvas=document.createElement('canvas');canvas.width=canvas.height=160;const c=canvas.getContext('2d')!;
@@ -34,12 +34,18 @@ async function coverImage(cover:Cover):Promise<HTMLImageElement>{
 }
 
 // Prepare a small decoded queue; keep the original motion and a random 20-25 display slots per visit.
-export const floatingCoversReady=(async()=>{
+let coversStarted=false;
+let resolveCovers:(set:CoverSet)=>void,rejectCovers:(error:unknown)=>void;
+export const floatingCoversReady=new Promise<CoverSet>((resolve,reject)=>{resolveCovers=resolve;rejectCovers=reject;});
+export function loadFloatingCovers(){
+ if(coversStarted)return;coversStarted=true;
+ void (async()=>{
  const songs:Cover[]=[],used=new Set<string>(picker.uniqueCount>=picker.history.length+COVER_SLOTS?picker.history:[]);
  for(let i=0;i<Math.min(COVER_SLOTS,picker.uniqueCount);i++){const song=picker.take(used);if(!song)break;songs.push(song);used.add(coverKey(song));remember(song);}
  const images=await Promise.all(songs.map(coverImage));current={images,songs,updatedAt:''};
  fillQueue();return current;
-})();
+ })().then(resolveCovers,rejectCovers);
+}
 export function onFloatingCovers(listener:(set:CoverSet)=>void){listeners.add(listener);}
 export function setCoverOrbitMode(value:boolean){orbit=value;}
 function fillQueue(){

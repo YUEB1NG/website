@@ -25,6 +25,8 @@ export class Planets {
   private rings=new THREE.Group();
   private orbitSprites:THREE.Sprite[]=[];
   private naturalMaps:THREE.Texture[]=[];
+  // Keep the sprite programs resident before any cover downloads complete.
+  private coverWarmMaterial=new THREE.SpriteMaterial({map:(()=>{const t=new THREE.DataTexture(new Uint8Array([255,255,255,255]),1,1);t.colorSpace=THREE.SRGBColorSpace;t.needsUpdate=true;return t;})(),transparent:true,depthTest:true,depthWrite:false,alphaTest:.04,toneMapped:false});
   private coverTextures=new Map<HTMLImageElement,THREE.Texture>();
   private coverUploads=0;
   private coverUploadsDuringMorph=0;
@@ -106,11 +108,6 @@ export class Planets {
       ...maps.map(async(name,index)=>{this.textures[index]=await load(`/planets/${name}.jpg`);}),
       load('/planets/earth_nightmap.jpg').then(t=>this.night=t),load('/planets/earth-normal.jpg',false).then(t=>this.normal=t),load('/planets/earth-specular.jpg',false).then(t=>this.specular=t),
       load('/planets/earth_clouds.jpg',false).then(t=>{this.clouds.material.alphaMap=t;this.clouds.material.needsUpdate=true;}),load('/planets/saturn-ring.png').then(t=>this.ringMap=t),
-      floatingCoversReady.then(({images})=>images.forEach((image,i)=>{
-        const texture=this.coverTexture(image);this.naturalMaps[i]=texture;
-        const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:true,depthWrite:false,alphaTest:.04,toneMapped:false}));sprite.layers.set(PORTRAIT_LAYER);sprite.renderOrder=2;sprite.userData.particle=i;sprite.visible=false;this.scene.add(sprite);this.orbitSprites[i]=sprite;
-      })),
-      loadStickers().then(textures=>{this.charmMaps=textures;})
     ]).then(async()=>{
       this.select(this.index);
       // Upload the surfaces and compile before the opening finishes, not on the first tap.
@@ -126,6 +123,12 @@ export class Planets {
       await this.warmFootball(footballPlayOrder[1]);
       await this.warmFootball(footballPlayOrder[2]);
     });this.select(2);
+    void floatingCoversReady.then(({images})=>images.forEach((image,i)=>{
+        const texture=this.coverTexture(image);this.naturalMaps[i]=texture;
+        const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:true,depthWrite:false,alphaTest:.04,toneMapped:false}));sprite.layers.set(PORTRAIT_LAYER);sprite.renderOrder=2;sprite.userData.particle=i;sprite.visible=false;this.scene.add(sprite);this.orbitSprites[i]=sprite;
+      })).catch(()=>{});
+    void this.ready.then(()=>loadStickers()).then(textures=>{this.charmMaps=textures;}).catch(()=>{});
+
     onPreparedCover(image=>{this.coverTexture(image);});
     onFloatingCovers(({images,birth})=>{
       images.forEach((image,i)=>{
@@ -220,6 +223,7 @@ export class Planets {
         const warmParticles=!this.particlesWarmed;
         if(warmParticles){
           warmScene.add(this.footballPoints);
+          const cover=new THREE.Sprite(this.coverWarmMaterial);cover.layers.set(PORTRAIT_LAYER);warmScene.add(cover);
           // Avatars enter the glass capture during the first morph too.
           // Warm their linear-color sprite shader and upload every portrait texture.
           this.orbitSprites.forEach(sprite=>{const copy=sprite.clone();copy.visible=true;warmScene.add(copy);});
@@ -239,7 +243,7 @@ export class Planets {
         // Issue actual screen draw calls as well, without altering any screen pixels.
         // This uploads buffers / VAOs before the first user-triggered particle frame.
         const states=new Map<THREE.Material,{colorWrite:boolean;depthWrite:boolean}>();
-        warmScene.traverse(o=>{if(o instanceof THREE.Mesh||o instanceof THREE.Points){
+        warmScene.traverse(o=>{if(o instanceof THREE.Mesh||o instanceof THREE.Points||o instanceof THREE.Sprite){
           for(const m of Array.isArray(o.material)?o.material:[o.material])if(!states.has(m)){
             states.set(m,{colorWrite:m.colorWrite,depthWrite:m.depthWrite});m.colorWrite=false;m.depthWrite=false;
           }

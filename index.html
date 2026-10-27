@@ -3,6 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <style>
+      html,body{margin:0;width:100%;height:100%;overflow:hidden}
+      #blueprint{position:fixed;inset:0;z-index:20;overflow:hidden;pointer-events:none;--wipe:0px}
+      #blueprint[hidden]{display:none}
+      .blue-sheet{position:absolute;inset:0;background:#2e6fff;color:#fff;clip-path:inset(var(--wipe) 0 0 0)}
+    </style>
     <meta name="theme-color" content="#000000" />
     <script>(function(){var t=matchMedia('(prefers-color-scheme: dark)').matches?'night':'day';try{var saved=localStorage.getItem('yueb1ng-theme');if(saved==='night'||saved==='day')t=saved}catch(e){}var color=t==='day'?'#f4f6fa':'#000000';document.documentElement.dataset.theme=t;document.documentElement.style.backgroundColor=color;document.documentElement.style.colorScheme=t==='day'?'light':'dark';document.querySelector('meta[name="theme-color"]').content=color})()</script>
     <meta name="description" content="Wabi — an interactive prism, a quiet starfield, and a few words to uncover." />
@@ -12,7 +18,7 @@
   </head>
   <body>
     <div class="chrome-safe" aria-hidden="true"></div>
-    <main id="wabi" aria-label="Wabi interactive experience" data-state="intro">
+    <main id="wabi" aria-label="Wabi interactive experience" data-state="intro" inert>
       <canvas id="scene" aria-hidden="true"></canvas>
       <button id="back" class="back" aria-label="Replay opening animation" title="Replay opening animation" data-blueprint="control">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 12H4m7-7-7 7 7 7"/></svg>
@@ -29,12 +35,13 @@
         <p class="likes"><span>I <button id="football-toggle" class="quiet-trigger" aria-label="like — discover historic World Cup footballs">like</button> to</span> <button class="reveal-trigger word-trigger" data-reveal="word" aria-expanded="false" aria-controls="word-content"><span id="word-content" class="reveal-content" data-state="closed"><span id="flip-word" class="flip-word" aria-label="Learn"></span></span></button> <span id="everything">everything.</span></p>
       </section>
       <a id="social" class="social" href="https://x.com/yueb1ng" target="_blank" rel="noopener noreferrer" aria-label="Follow YUEB1NG on X" data-platform="x" data-region-ready="false" inert><span class="social-content"><span>Follow on</span><span class="social-icon"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M10.4883 14.651L15.25 21H22.25L14.3917 10.5223L20.9308 3H18.2808L13.1643 8.88578L8.75 3H1.75L9.26086 13.0145L2.31915 21H4.96917L10.4883 14.651ZM16.25 19L5.75 5H7.75L18.25 19H16.25Z"></path></svg></span><span class="social-account">@YUEB1NG</span></span></a>
+      <!-- deployment-registration -->
       <p id="status" class="sr-only" aria-live="polite"></p>
       <p id="object-caption" class="object-caption" aria-hidden="true"></p>
       <button id="celebrate" class="sr-only" aria-label="Celebrate with Argentina stickers" inert>Celebrate</button>
     </main>
     <div id="blueprint" class="blueprint" aria-hidden="true"><div class="blue-sheet"><div class="blue-grid"></div><div id="drawing"></div></div><div class="wipe-edge"></div></div>
     <noscript><p class="no-script">This interactive Wabi experience needs JavaScript enabled.</p></noscript>
-    <script type="module" src="/src/main.ts"></script>
+    <script type="module" src="/src/bootstrap.ts"></script>
   </body>
 </html>

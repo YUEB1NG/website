@@ -5,8 +5,11 @@ export class Blueprint {
   private overlay=document.querySelector<HTMLElement>('#blueprint')!;
   private duration=2800;
   active=false;
+  ready=false;
+  private wipeStarted=0;
+  private frame=0;
   constructor(private done:()=>void){}
-  start(){this.active=true;this.started=performance.now();this.overlay.hidden=false;this.overlay.classList.remove('wiping');this.overlay.style.setProperty('--wipe','0px');this.measure();}
+  start(){cancelAnimationFrame(this.frame);this.wipeStarted=0;this.active=true;this.started=performance.now();this.overlay.hidden=false;this.overlay.classList.remove('wiping');this.overlay.style.setProperty('--wipe','0px');this.measure();const frame=(now:number)=>{this.tick(now);if(this.active)this.frame=requestAnimationFrame(frame);};this.frame=requestAnimationFrame(frame);}
   measure(){
     this.drawing.replaceChildren();
     const w=window.innerWidth,h=window.innerHeight,col=Math.min(w*.85,480),left=(w-col)/2;
@@ -34,11 +37,14 @@ export class Blueprint {
   tick(now:number){
     if(!this.active)return;
     const t=now-this.started;
-    if(t<this.duration)return;
+    if(t<this.duration||!this.ready)return;
+    if(!this.wipeStarted)this.wipeStarted=now;
     this.overlay.classList.add('wiping');
-    const p=Math.min(1,(t-this.duration)/1200),ease=p*p*(3-2*p);
+    const p=Math.min(1,(now-this.wipeStarted)/1200),ease=p*p*(3-2*p);
     this.overlay.style.setProperty('--wipe',`${ease*(window.innerHeight+3)}px`);
     if(p>=1)this.finish();
   }
-  finish(){if(!this.active)return;this.active=false;this.overlay.hidden=true;this.done();}
+  finish(){if(!this.active)return;this.active=false;cancelAnimationFrame(this.frame);this.overlay.hidden=true;this.done();}
 }
+
+export const opening=new Blueprint(()=>window.dispatchEvent(new Event('wabi:opening-finished')));

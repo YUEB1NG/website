@@ -21,10 +21,10 @@ const assets={async fetch(request){
   let bytes=await readFile(target);
   if(target===resolve(root,'index.html')){
    // This mainland deployment must display its verified ICP registration.
-   const footer='<style>@keyframes icp-appear{from{opacity:0}to{opacity:.72}}.icp-link{position:fixed;z-index:8;left:50%;bottom:max(6px,env(safe-area-inset-bottom));transform:translateX(-50%);color:var(--ink);font:11px/1.4 sans-serif;text-decoration:none;white-space:nowrap;opacity:.72;animation:icp-appear .8s 3s both}.icp-link:hover,.icp-link:focus-visible{opacity:1;text-decoration:underline}@media(prefers-reduced-motion:reduce){.icp-link{animation:none}}</style><a class="icp-link" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">辽ICP备2026025063号-1</a>';
-   bytes=Buffer.from(bytes.toString('utf8').replace('</body>',footer+'</body>'));
+   const footer='<a id="registration" class="registration" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" inert>\u8fbdICP\u59072026025063\u53f7-1</a>';
+   bytes=Buffer.from(bytes.toString('utf8').replace('<!-- deployment-registration -->',footer));
   }
-  return new Response(request.method==='HEAD'?null:bytes,{headers:{'Content-Type':types[extname(target).toLowerCase()]||'application/octet-stream','X-Content-Type-Options':'nosniff','Cache-Control':name.startsWith('/assets/')?'public, max-age=31536000, immutable':'public, max-age=3600'}});
+  return new Response(request.method==='HEAD'?null:bytes,{headers:{'Content-Type':types[extname(target).toLowerCase()]||'application/octet-stream','X-Content-Type-Options':'nosniff','Cache-Control':extname(target)==='.html'?'no-cache':name.startsWith('/assets/')?'public, max-age=31536000, immutable':'public, max-age=3600'}});
  }catch(e){if(e.code==='ENOENT'||e.code==='EISDIR')return new Response('Not found',{status:404});throw e;}
 }};
 const env={BUCKET:new FileBucket(data),ASSETS:assets};
