@@ -9,7 +9,7 @@ import {FileBucket} from './storage.mjs';
 const root=resolve(fileURLToPath(new URL('../../dist/client/',import.meta.url)));
 const data=resolve(process.env.YUEB1NG_DATA_DIR||fileURLToPath(new URL('../../.tools/aliyun-data/',import.meta.url)));
 const port=Number(process.env.PORT||3000),host=process.env.HOST||'127.0.0.1';
-const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.woff2':'font/woff2','.woff':'font/woff'};
+const types={'.txt':'text/plain; charset=utf-8','.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.woff2':'font/woff2','.woff':'font/woff'};
 const assets={async fetch(request){
  const url=new URL(request.url);let name;
  try{name=decodeURIComponent(url.pathname);}catch{return new Response('Bad request',{status:400});}
