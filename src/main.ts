@@ -27,6 +27,21 @@ function resetName(){nameUnlocked=false;$('.english-name').style.opacity='1';$('
 let width=innerWidth,height=innerHeight,x=width/2,y=height,targetX=x,targetY=y,vx=0,vy=0,textY=height,textV=0,active=false,dragging=false,reduced=media.matches;
 let last=performance.now(),elapsed=0,wordStarted=0,downX=0,downY=0,fromY=0,moved=false,tiltX=0,tiltY=0,smoothTiltX=0,smoothTiltY=0,pointer:number|null=null;
 let flipIndex=0,pressedOrb=false;
+let tapTimer:ReturnType<typeof setTimeout>|undefined,lastTapAt=0,lastTapX=0,lastTapY=0,lastDoubleBurst=-Infinity;
+function cancelTap(){if(tapTimer!==undefined)clearTimeout(tapTimer);tapTimer=undefined;}
+function doubleSceneTap(x:number,y:number){
+  cancelTap();lastTapAt=0;
+  if(performance.now()-lastDoubleBurst<300)return;
+  lastDoubleBurst=performance.now();planets.celebrateAt(x,y,reduced);
+}
+function sceneTap(e:PointerEvent){
+  const now=performance.now(),double=now-lastTapAt<280&&Math.hypot(e.clientX-lastTapX,e.clientY-lastTapY)<30;
+  cancelTap();
+  if(double&&active){doubleSceneTap(e.clientX,e.clientY);return;}
+  lastTapAt=now;lastTapX=e.clientX;lastTapY=e.clientY;
+  if(pressedParticle!==null){planets.celebrate(pressedParticle,reduced);return;}
+  if(pressedOrb){if(!active){setActive(true);lastTapAt=0;}else tapTimer=setTimeout(()=>{tapTimer=undefined;lastTapAt=0;setActive(false);},280);}
+}
 const words=['Learn','Build','Share'];
 const flipWord=$('#flip-word');
 window.addEventListener('wabi:opening-finished',()=>{app.dataset.state=active?'revealed':'rest';app.inert=false;syncTheme();status.textContent='Swipe up or press Enter to start.';});
@@ -39,6 +54,7 @@ setWord(words[0]);
 
 function resetReveals(){document.querySelectorAll<HTMLButtonElement>('[data-reveal]').forEach(button=>{button.setAttribute('aria-expanded','false');button.querySelector<HTMLElement>('.reveal-content')!.dataset.state='closed';});}
 function setActive(next:boolean){
+  cancelTap();
   const changed=active!==next;
   const incoming=hasEntered?(planetIndex+1)%planetNames.length:2;
   // A fast second tap must not replace a still-visible outgoing surface.
@@ -114,7 +130,11 @@ $('#celebrate').addEventListener('click',()=>planets.celebrate(0,reduced));
 for(const event of ['contextmenu','selectstart','dragstart','copy'])document.addEventListener(event,e=>e.preventDefault());
 app.addEventListener('pointerdown',e=>{
   if(blueprint.active||e.button!==0||pointer!==null)return;
-  const el=e.target as HTMLElement;if(el.closest('a,button')&&el!==orb)return;
+  const el=e.target as HTMLElement;cancelTap();
+  if(el.closest('a,button')&&el!==orb){lastTapAt=0;return;}
+  // Reserve edge-origin background touches for browser navigation. An orb grab
+  // can start near an edge, and an existing drag can cross either edge.
+  if(e.pointerType==='touch'&&(e.clientX<20||e.clientX>width-20)&&el!==orb){lastTapAt=0;return;}
   pressedParticle=active?planets.hitParticle(e.clientX,e.clientY):null;
   pressedOrb=el===orb&&pressedParticle===null;held=false;pointer=e.pointerId;dragging=true;moved=false;downX=e.clientX;downY=e.clientY;fromY=y;app.setPointerCapture(pointer);
   if(pressedOrb&&active)holdTimer=setTimeout(()=>{if(!moved&&dragging){held=true;toggleOrbit();}},550);
@@ -122,7 +142,7 @@ app.addEventListener('pointerdown',e=>{
 app.addEventListener('pointermove',e=>{
   tiltX=clamp((e.clientX-width/2)/(width/2),-1,1)*.3;tiltY=clamp((e.clientY-height/2)/(height/2),-1,1)*.2;
   if(!dragging||pointer!==e.pointerId)return;
-  const dx=e.clientX-downX,dy=e.clientY-downY;if(Math.hypot(dx,dy)>6){moved=true;clearHold();}
+  const dx=e.clientX-downX,dy=e.clientY-downY;if(Math.hypot(dx,dy)>6){moved=true;clearHold();cancelTap();lastTapAt=0;}
   targetY=clamp(fromY+dy,0,height);targetX=clamp(width/2+dx,0,width);
   if(reduced){x=targetX;y=targetY;}
 });
@@ -131,9 +151,22 @@ function endDrag(e:PointerEvent){
   clearHold();
   dragging=false;pointer=null;if(app.hasPointerCapture(e.pointerId))app.releasePointerCapture(e.pointerId);
   if(e.type==='pointercancel'){setActive(active);return;}
-  if(moved)setActive(targetY<(height*.4+height)/2);else if(pressedParticle!==null){planets.celebrate(pressedParticle,reduced);targetY=active?height*.4:height;targetX=width/2;}else if(pressedOrb&&!held)setActive(!active);else{targetY=active?height*.4:height;targetX=width/2;}
+  if(moved)setActive(targetY<(height*.4+height)/2);else{if(!held)sceneTap(e);targetY=active?height*.4:height;targetX=width/2;}
 }
 orb.addEventListener('contextmenu',e=>e.preventDefault());
+app.addEventListener('dblclick',e=>{
+  e.preventDefault();const el=e.target as HTMLElement;
+  if(active&&e instanceof MouseEvent&&(!el.closest('a,button')||el===orb))doubleSceneTap(e.clientX,e.clientY);
+});
+let lastTouchEnd=0;
+document.addEventListener('touchend',e=>{
+  const now=performance.now();if(e.touches.length===0&&now-lastTouchEnd<300)e.preventDefault();lastTouchEnd=now;
+},{passive:false});
+for(const event of ['gesturestart','gesturechange','gestureend'])document.addEventListener(event,e=>e.preventDefault(),{passive:false});
+document.addEventListener('touchstart',e=>{if(e.touches.length>1){e.preventDefault();clearHold();cancelTap();}},{passive:false});
+document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault();},{passive:false});
+window.addEventListener('pagehide',()=>{clearHold();cancelTap();pointer=null;dragging=false;});
+window.addEventListener('pageshow',()=>{pointer=null;dragging=false;x=targetX=width/2;y=targetY=active?height*.4:height;vx=vy=0;});
 app.addEventListener('pointerup',endDrag);app.addEventListener('pointercancel',endDrag);
 app.addEventListener('lostpointercapture',()=>{if(dragging){dragging=false;pointer=null;setActive(active);}});
 app.addEventListener('wheel',e=>{if(blueprint.active)return;e.preventDefault();if(Math.abs(e.deltaY)>12)setActive(e.deltaY>0);},{passive:false});
@@ -153,7 +186,7 @@ media.addEventListener('change',()=>{reduced=media.matches;if(reduced){blueprint
 function tick(now:number){
   const dt=Math.min((now-last)/1000,.032);last=now;elapsed+=dt;
   if(active)entryAge+=dt;
-  const socialTarget=active&&entryAge>1.1&&social.dataset.regionReady==='true'?1:0;
+  const socialTarget=active&&entryAge>.85&&social.dataset.regionReady==='true'?1:0;
   socialAge=socialTarget?socialAge+dt:0;
   const settle=1-Math.exp(-dt*1.8);
   socialAlpha=reduced?socialTarget:socialAlpha+(socialTarget-socialAlpha)*settle;

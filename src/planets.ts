@@ -285,8 +285,13 @@ export class Planets {
     const objects:THREE.Object3D[]=[...this.orbitSprites.filter(s=>s.visible),...this.group.children.filter(s=>s.visible),...(this.glass.mesh.visible?[this.glass.mesh]:[])];const hit=this.raycaster.intersectObjects(objects,true).find(h=>h.object.visible);
     return hit?.object instanceof THREE.Sprite&&typeof hit.object.userData.particle==='number'?hit.object.userData.particle as number:null;
   }
-  celebrate(index:number,reduced:boolean){
-    const origin=this.orbitSprites[index];if(!origin||!this.charmMaps.football.length)return;origin.userData.pop=1;
+  celebrateAt(x:number,y:number,reduced:boolean){
+    const r=this.canvas.getBoundingClientRect();
+    const at=new THREE.Vector3(this.camera.left+(x-r.left)/r.width*(this.camera.right-this.camera.left),this.camera.top-(y-r.top)/r.height*(this.camera.top-this.camera.bottom),3);
+    this.celebrate(-1,reduced,at);
+  }
+  celebrate(index:number,reduced:boolean,at?:THREE.Vector3){
+    const origin=this.orbitSprites[index];if((!origin&&!at)||!this.charmMaps.football.length)return;if(origin)origin.userData.pop=1;
     const count=stickerCount(),categories:string[]=[],distances:number[]=[],endpoints:THREE.Vector3[]=[];
     while(this.bursts.length+count>40)this.removeBurst(this.bursts[0]);
     const used=new Set<THREE.Texture>(),mode=this.footballTransition?.diagnostics.targetVisible?'football':this.mode;
@@ -295,7 +300,7 @@ export class Planets {
       const choices=pool.length?pool:this.charmMaps.football,map=choices[Math.floor(Math.random()*choices.length)];used.add(map);categories.push(category);
       const material=new THREE.SpriteMaterial({map,transparent:true,depthTest:false,depthWrite:false,toneMapped:false,rotation:(Math.random()-.5)*.32});
       const sprite=new THREE.Sprite(material);sprite.layers.set(PORTRAIT_LAYER);sprite.renderOrder=3;
-      const from=origin.position.clone();from.z=3;
+      const from=(at??origin!.position).clone();from.z=3;
       const margin=.42,offset=new THREE.Vector3();let best=-Infinity;
       // Rejection sampling avoids off-screen directions and nearly identical paths.
       for(let attempt=0;attempt<48;attempt++){
@@ -331,6 +336,7 @@ export class Planets {
     if(!reduced){this.rotation+=dt*.045;if(!this.footballTransition)this.body.rotation.y+=dt*.045;this.clouds.rotation.y=this.body.rotation.y+this.rotation*.08;this.rings.rotation.y+=dt*.008;this.orbitAngle+=dt*.11;const rotating=this.keepsake?.userData.rotating??this.keepsake;if(rotating&&!this.footballTransition)rotating.rotation.y+=dt*.08;}
     if(!this.footballTransition)this.rings.children.forEach(c=>{(c as THREE.Mesh<THREE.RingGeometry,THREE.MeshPhongMaterial>).material.opacity=(this.index===5?.85:.22)*(1-smooth(Math.min(1,orbitMix*2)));});
     const coverOpacity=this.coverSwapAges.map((age,i)=>{
+      if(orbitMix>.001)return 1;
       age=this.coverSwapAges[i]=Math.min(1,age+dt);
       const pending=this.pendingCovers.get(i);
       if(pending&&age>=.3){this.naturalMaps[i]=pending;this.orbitSprites[i].material.map=pending;this.pendingCovers.delete(i);}
@@ -339,7 +345,7 @@ export class Planets {
     const count=this.orbitSprites.length,blend=smooth(orbitMix);
     this.orbitSprites.forEach((sprite,i)=>{const p=particles[i],slot=portraitOrbit(i/count*Math.PI*2+this.orbitAngle);const orbital=this.orbitalPosition.set(slot.x,slot.y,slot.z).add(this.group.position);const natural=this.naturalPosition.set(((p?.x??x)-w/2)/radius,(h/2-(p?.y??y))/radius,-2);
       // One persistent sprite on one continuous path, without fading to a duplicate.
-      sprite.position.copy(natural.lerp(orbital,blend));sprite.visible=i<count&&mix>.5&&((!!p?.visible&&!reduced)||orbitMix>.005);sprite.material.opacity=coverOpacity[i]??1;sprite.userData.pop=Math.max(0,(sprite.userData.pop??0)-dt*1.8);const pop=1+Math.sin((sprite.userData.pop??0)*Math.PI)*.3;const size=THREE.MathUtils.lerp((p?.visible?p.size:0)/radius,slot.size,blend);sprite.scale.setScalar(Math.max(.001,size)*pop);
+      sprite.position.copy(natural.lerp(orbital,blend));sprite.visible=i<count&&mix>.001&&((!!p?.visible&&!reduced)||orbitMix>.005);sprite.material.opacity=coverOpacity[i]??1;sprite.userData.pop=Math.max(0,(sprite.userData.pop??0)-dt*1.8);const pop=1+Math.sin((sprite.userData.pop??0)*Math.PI)*.3;const size=THREE.MathUtils.lerp((p?.visible?p.size:0)/radius,slot.size,blend);sprite.scale.setScalar(Math.max(.001,size)*pop);
     });
     for(const b of [...this.bursts]){
       b.age+=dt;if(b.age<0)continue;if(b.age>b.life){this.removeBurst(b);continue;}
@@ -354,8 +360,7 @@ export class Planets {
     }
     // The glass follows the very same dissolve envelope as the solid surface;
     // no shell remains during the particle-only part of a football change.
-    const progress=this.footballTransition?.diagnostics.progress;
-    const glassPresence=progress===undefined?1:progress<.13?1-smooth(progress/.13):progress>.84?smooth((progress-.84)/.16):0;
+    const glassPresence=this.footballTransition?.shellPresence??1;
     this.glass.update(this.group,x,y,radius,dt,reduced,dragging,day,mix>.001?glassPresence:0);
     this.scene.updateMatrixWorld();if(mix>.001)this.glass.render(this.renderer!,this.scene,this.camera);
   }

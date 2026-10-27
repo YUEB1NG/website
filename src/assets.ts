@@ -12,7 +12,7 @@ async function waitForQuiet(){while(motionBusy)await new Promise(resolve=>setTim
 const cache=new Map<string,Promise<HTMLImageElement>>();
 const historyKey='yueb1ng-cover-history';
 function readHistory():string[]{try{const a=JSON.parse(localStorage.getItem(historyKey)??'[]');return Array.isArray(a)?a.filter(x=>typeof x==='string').slice(-55):[];}catch{return [];}}
-let pool:Cover[]=fallback,current:CoverSet,slot=0,checking=false,started=false,orbit=false,loading=0,epoch=0;
+let pool:Cover[]=fallback,current:CoverSet,checking=false,started=false,orbit=false,loading=0,epoch=0;
 const picker=new CoverPicker(pool,readHistory()),reserved=new Set<string>();
 let ready:{song:Cover;image:HTMLImageElement}[]=[];
 function saveHistory(){historyTimer=undefined;if(motionBusy){historyTimer=setTimeout(saveHistory,500);return;}try{localStorage.setItem(historyKey,JSON.stringify(picker.history));}catch{/* Private browsing can disable storage. */}}
@@ -60,7 +60,7 @@ function fillQueue(){
  }
 }
 export function refreshCoverSlot(index:number,birth=true){
- if(!current||document.hidden)return;
+ if(!current||document.hidden||orbit)return;
  const next=ready.shift();if(!next){fillQueue();return;}
  reserved.delete(coverKey(next.song));
  const images=[...current.images],songs=[...current.songs];images[index]=next.image;songs[index]=next.song;
@@ -82,7 +82,6 @@ export async function syncFloatingCovers(){
 export function startCoverUpdates(){
  if(started)return;started=true;void syncFloatingCovers();
  setInterval(fillQueue,800);
- setInterval(()=>{if(orbit&&current)refreshCoverSlot(slot++%current.songs.length,false);},2800);
  setInterval(()=>{if(!document.hidden)void syncFloatingCovers()},60*60*1000);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden){void syncFloatingCovers();fillQueue();}});
 }

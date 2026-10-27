@@ -9,15 +9,17 @@ export class Blueprint {
   private wipeStarted=0;
   private frame=0;
   constructor(private done:()=>void){}
-  start(){cancelAnimationFrame(this.frame);this.wipeStarted=0;this.active=true;this.started=performance.now();this.overlay.hidden=false;this.overlay.classList.remove('wiping');this.overlay.style.setProperty('--wipe','0px');this.measure();const frame=(now:number)=>{this.tick(now);if(this.active)this.frame=requestAnimationFrame(frame);};this.frame=requestAnimationFrame(frame);}
+  start(){cancelAnimationFrame(this.frame);this.wipeStarted=0;this.active=true;this.started=performance.now();this.overlay.hidden=false;this.overlay.classList.remove('wiping');this.overlay.style.setProperty('--wipe','0px');this.drawing.replaceChildren();this.measure();const frame=(now:number)=>{this.tick(now);if(this.active)this.frame=requestAnimationFrame(frame);};this.frame=requestAnimationFrame(frame);}
   measure(){
-    this.drawing.replaceChildren();
+    const existing=new Map(Array.from(this.drawing.children).map(el=>[(el as HTMLElement).dataset.key!,el as HTMLElement]));
+    const counts=new Map<string,number>(),used=new Set<HTMLElement>();
     const w=window.innerWidth,h=window.innerHeight,col=Math.min(w*.85,480),left=(w-col)/2;
     this.overlay.style.setProperty('--origin',`${left}px`);
-    const add=(cls:string,styles:Record<string,string>,text?:string)=>{const el=document.createElement('div');el.className=cls;Object.assign(el.style,styles);if(text)el.textContent=text;this.drawing.append(el);return el;};
+    const add=(cls:string,styles:Record<string,string>,text?:string)=>{const index=counts.get(cls)??0;counts.set(cls,index+1);const key=cls+index;const el=existing.get(key)??document.createElement('div');el.dataset.key=key;el.className=cls;Object.assign(el.style,styles);if(text)el.textContent=text;if(!el.parentElement)this.drawing.append(el);used.add(el);return el;};
+    const label=(el:HTMLElement,text:string,cls='')=>{let b=el.querySelector('b');if(!b){b=document.createElement('b');el.append(b);}b.className=cls;b.textContent=text;};
     add('draft-column',{left:`${left}px`,width:`${col}px`});
     add('draft-ruler',{});
-    const dim=add('draft-dim',{left:`${left}px`,top:'28px',width:`${col}px`});dim.append(Object.assign(document.createElement('b'),{textContent:`${Math.round(col)}`}));
+    const dim=add('draft-dim',{left:`${left}px`,top:'28px',width:`${col}px`});label(dim,`${Math.round(col)}`);
     add('draft-cross',{top:`${h*.5}px`});
     add('draft-note',{left:`${left+12}px`,top:'48px'},'01 · setting out');
     if(w>760)add('draft-note',{left:`${left+col+18}px`,top:'48px'},'wabi · 1:1');
@@ -25,14 +27,15 @@ export class Blueprint {
       const r=el.getBoundingClientRect(),kind=el.dataset.blueprint!;
       const rect={left:`${r.left}px`,top:`${r.top}px`,width:`${r.width}px`,height:`${r.height}px`};
       const box=add(`draft-box ${kind}`,rect);box.style.setProperty('--i',`${index}`);
-      const label=document.createElement('b');label.className='draft-label';label.textContent=kind==='prism'?`prism · ø ${Math.round(r.width)}`:kind==='copy'?'copy 01':'back';box.append(label);
+      label(box,kind==='prism'?`prism · ø ${Math.round(r.width)}`:kind==='copy'?'copy 01':'back','draft-label');
       if(kind==='copy'){
         const ghost=add('draft-text',rect,el.textContent??'');ghost.style.setProperty('--i',`${index}`);
-        box.animate([{opacity:1},{opacity:0}],{duration:300,delay:1500+index*70,fill:'forwards'});
-        const d=add('draft-dim',{left:`${r.left}px`,top:`${r.bottom+23}px`,width:`${r.width}px`});d.append(Object.assign(document.createElement('b'),{textContent:`${Math.round(r.width)} × ${Math.round(r.height)}`}));
+        if(!box.dataset.faded){box.dataset.faded='true';box.animate([{opacity:1},{opacity:0}],{duration:300,delay:1500+index*70,fill:'forwards'});}
+        const d=add('draft-dim',{left:`${r.left}px`,top:`${r.bottom+23}px`,width:`${r.width}px`});label(d,`${Math.round(r.width)} × ${Math.round(r.height)}`);
       }
       if(kind==='prism'){add('draft-origin',{left:`${r.left+r.width/2}px`,top:`${r.top+r.height/2}px`});}
     });
+    existing.forEach(el=>{if(!used.has(el))el.remove();});
   }
   tick(now:number){
     if(!this.active)return;

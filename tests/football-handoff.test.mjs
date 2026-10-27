@@ -8,11 +8,11 @@ test('restored 2.15 second morph has a particle-only stage and a gradual overlap
  assert.equal(t.duration,2.15);
  for(let frame=0;frame<1000;frame++){
   t.tick(t.duration/1000,50,1,false);const d=t.diagnostics;
-  if(d.progress>.13&&d.progress<.84){assert.equal(d.targetVisible,false);particleOnly++;}
+  if(d.progress>.13&&d.progress<.78){assert.equal(d.targetVisible,false);particleOnly++;}
   const opacity=t.target.children[0].material.opacity;assert.ok(opacity>=previous);previous=opacity;
   if(opacity>0&&opacity<1)crossover++;
  }
- assert.ok(particleOnly>400);assert.ok(crossover>150);assert.equal(previous,1);t.dispose();
+ assert.ok(particleOnly>400);assert.ok(crossover>200);assert.equal(previous,1);t.dispose();
 });
 
 test('reduced motion and cancellation restore all materials',()=>{
