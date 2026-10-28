@@ -28,7 +28,7 @@ let width=innerWidth,height=innerHeight,x=width/2,y=height,targetX=x,targetY=y,v
 let last=performance.now(),elapsed=0,wordStarted=0,downX=0,downY=0,fromY=0,moved=false,tiltX=0,tiltY=0,smoothTiltX=0,smoothTiltY=0,pointer:number|null=null;
 let flipIndex=0,pressedOrb=false;
 let tapTimer:ReturnType<typeof setTimeout>|undefined,lastTapAt=0,lastTapX=0,lastTapY=0,lastDoubleBurst=-Infinity;
-function cancelTap(){if(tapTimer!==undefined)clearTimeout(tapTimer);tapTimer=undefined;}
+function cancelTap(){if(tapTimer!==undefined){clearTimeout(tapTimer);if(active&&!dragging)targetY=height*.4;}tapTimer=undefined;}
 function doubleSceneTap(x:number,y:number){
   cancelTap();lastTapAt=0;
   if(performance.now()-lastDoubleBurst<300)return;
@@ -151,7 +151,8 @@ function endDrag(e:PointerEvent){
   clearHold();
   dragging=false;pointer=null;if(app.hasPointerCapture(e.pointerId))app.releasePointerCapture(e.pointerId);
   if(e.type==='pointercancel'){setActive(active);return;}
-  if(moved)setActive(targetY<(height*.4+height)/2);else{if(!held)sceneTap(e);targetY=active?height*.4:height;targetX=width/2;}
+  if(moved)setActive(targetY<(height*.4+height)/2);else{if(!held)sceneTap(e);// Begin a small return motion immediately while reserving the double-tap window.
+    targetY=active?height*.4+(tapTimer!==undefined&&!reduced?24:0):height;targetX=width/2;}
 }
 orb.addEventListener('contextmenu',e=>e.preventDefault());
 app.addEventListener('dblclick',e=>{
