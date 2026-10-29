@@ -8,11 +8,19 @@
 
 一个基于 TypeScript、Three.js 和 Cloudflare Worker 的个人主页：从蓝图开屏进入玻璃星球，在同一场景里探索音乐封面轨道、足球粒子重组、文字揭示与日夜主题。
 
-[在线体验](https://yueb1ng-wabi.quyue.chatgpt.site/) · [交互细节](docs/INTERACTIONS.zh-CN.md) · [后端与部署](docs/DEPLOY.md) · [贡献说明](CONTRIBUTING.md) · [素材来源](SOURCES.md)
+[在线体验](https://yueb1ng.com/) · [交互细节](docs/INTERACTIONS.zh-CN.md) · [后端与部署](docs/DEPLOY.md) · [贡献说明](CONTRIBUTING.md) · [素材来源](SOURCES.md)
 
 封面是 AI 概念插图；下面是实际公网页面截图。插图不代表额外功能、精确模型或截图。
 
 ![公网桌面截图](docs/images/live-desktop.png)
+
+## 开发过程公开记录
+
+本项目保留脱敏的开发统计：累计 token、对话轮数、工具调用、耗时及统计局限。数据为历史快照，不代表实际账单。
+
+[![ASCII + Dither development statistics](docs/development/conversation-stats-20261029.png)](docs/development/README.md)
+
+[完整统计与口径 / Full record](docs/development/README.md) · [JSON](docs/development/conversation-stats-20261029.json) · [记录模板 / Template](docs/development/TEMPLATE.md)
 
 ## 快速开始
 

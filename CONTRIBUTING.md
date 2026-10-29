@@ -21,3 +21,9 @@ For browser regression, record viewport, browser, theme, reduced motion and the 
 说明触发条件、修改后的行为和实际执行的检查。README 的中英文版本保持一致，第三方版权与来源保留。凭据、Cookie、令牌、私有日志与本机运行数据不进入 Git 或 Issue。
 
 Describe the trigger, resulting behaviour and checks performed. Keep language variants aligned and preserve upstream notices. Keep credentials, Cookies, tokens, private logs and local runtime data out of Git and issues.
+
+## 开源交付记录 / Public delivery records
+
+每次开源交付使用 [记录模板](docs/development/TEMPLATE.md)，在 [开发记录](docs/development/README.md) 保存可核实的汇总统计、验证与部署状态。未知项写明未记录；历史快照不覆盖。密码、Key、Token、Cookie、原始日志及其他隐私不得提交，配置仅提供变量名与占位符。
+
+For every open-source delivery, publish a dated, sanitized process record with known usage, timing, validation and release evidence. State missing data and scope. Keep all secret values and private logs out of the repository.

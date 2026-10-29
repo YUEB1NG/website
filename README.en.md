@@ -8,11 +8,19 @@
 
 A personal website built with TypeScript, Three.js and a Cloudflare Worker. Move from a blueprint opening into a glass planet, music-cover orbits, football particle reconstruction, text reveals and day/night themes.
 
-[Live website](https://yueb1ng-wabi.quyue.chatgpt.site/) · [Interaction notes](docs/INTERACTIONS.zh-CN.md) · [Backend and deployment](docs/DEPLOY.md) · [Contributing](CONTRIBUTING.md) · [Sources](SOURCES.md)
+[Live website](https://yueb1ng.com/) · [Interaction notes](docs/INTERACTIONS.zh-CN.md) · [Backend and deployment](docs/DEPLOY.md) · [Contributing](CONTRIBUTING.md) · [Sources](SOURCES.md)
 
 The cover is an AI concept illustration. The following image is an actual public-page screenshot. The illustration does not establish additional features or exact geometry.
 
 ![Actual desktop screenshot](docs/images/live-desktop.png)
+
+## Development process record
+
+Sanitized historical statistics cover tokens, conversation turns, tool calls, timing and limitations. These are snapshots, not actual billing records.
+
+[![ASCII + Dither development statistics](docs/development/conversation-stats-20261029.png)](docs/development/README.md)
+
+[完整统计与口径 / Full record](docs/development/README.md) · [JSON](docs/development/conversation-stats-20261029.json) · [记录模板 / Template](docs/development/TEMPLATE.md)
 
 ## Quick start
 

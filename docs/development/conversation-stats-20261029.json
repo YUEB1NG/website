@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "project": "YUEB1NG/website",
+  "snapshot_at": "2026-10-29T03:18:49+08:00",
+  "timezone": "Asia/Shanghai",
+  "started_at": "2026-10-14T20:10:24.540+08:00",
+  "last_record_at": "2026-10-29T03:18:43.910+08:00",
+  "source": "Codex Trajectory structured local session statistics; sanitized aggregate only",
+  "scope": {
+    "tokens": "Main conversation and recursively related agents, counted once per task",
+    "activity": "Main conversation only",
+    "snapshot": "Historical snapshot; excludes work after the cutoff, including making this report"
+  },
+  "tokens": {
+    "total": 290441085,
+    "input": 289634258,
+    "cached_input": 281047936,
+    "uncached_input": 8586322,
+    "output": 806827,
+    "reasoning_output_included_in_output": 238026,
+    "cache_share_of_input_percent": 97.03546049445573
+  },
+  "activity": {
+    "turns": 105,
+    "tool_calls": 1915,
+    "failed_tool_calls": 148,
+    "compactions": 14
+  },
+  "timing": {
+    "elapsed_span_ms": 1235299370,
+    "total_active_ms": 281624288,
+    "local_tool_ms": 149150669,
+    "model_related_ms": 26278779,
+    "model_recorded_ms": 5777557,
+    "model_estimated_ms": 20501222,
+    "unattributed_ms": 106194840,
+    "timed_turns": 100,
+    "total_turns": 105,
+    "missing_or_invalid_tool_timing": 0,
+    "zero_duration_tools": 0,
+    "submillisecond_tools": 95,
+    "local_percent": 52.96086855974581,
+    "model_percent": 9.331147958374954,
+    "unattributed_percent": 37.70798348187923
+  },
+  "limitations": [
+    "Repeated context and cached input are included; token totals are not unique authored text.",
+    "Reasoning output is a subset of output, not additional tokens.",
+    "The log contains overlapping turn starts and mismatched item-to-turn events.",
+    "Five turns lack complete timing; active time is recorded coverage, not complete human work time.",
+    "Model-related time includes network, response and queueing estimates; it is not pure generation time.",
+    "Tool calls running in parallel count once in timing; gaps between turns are excluded.",
+    "A failed tool call is not equivalent to a shipped website defect.",
+    "Timing and token samples were read seconds apart; numbers are a fixed snapshot, not live counters.",
+    "No billing claim: subscription usage and token counts do not establish an actual bill."
+  ]
+}
