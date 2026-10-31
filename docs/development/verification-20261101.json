@@ -1,0 +1,132 @@
+{
+  "verified_on": "2026-11-01",
+  "timezone": "Asia/Shanghai",
+  "production_source_commit": "79ba772c4ba040b66387908deceb379d83de68a0",
+  "http": {
+    "yueb1ng.com": {
+      "home": 200,
+      "share": 200,
+      "404": 404,
+      "missingAsset": 404,
+      "shareImageSha256": "cc5abf9af515af3bdd057dd41eb74a8e343b300aabf9bf17f1b1a48afc866374",
+      "mainBundleSha256": "d4bf9737166e9b192bb53140c02e98f61c27872042f5e6db54c9baf05a555a7f"
+    },
+    "www.yueb1ng.com": {
+      "home": 200,
+      "share": 200,
+      "404": 404,
+      "missingAsset": 404,
+      "shareImageSha256": "cc5abf9af515af3bdd057dd41eb74a8e343b300aabf9bf17f1b1a48afc866374",
+      "mainBundleSha256": "d4bf9737166e9b192bb53140c02e98f61c27872042f5e6db54c9baf05a555a7f"
+    }
+  },
+  "browser": {
+    "viewport": [
+      390,
+      844
+    ],
+    "light_opening_samples": 224,
+    "night": {
+      "theme": "night",
+      "html": "rgb(0, 0, 0)",
+      "meta": "#000000"
+    },
+    "bootstrap_failure": {
+      "hiddenOpening": true,
+      "focus": "fallback-title",
+      "copy": "The scene couldn’t start. Check your connection or try opening this page in your browser."
+    },
+    "retry": true,
+    "reduced_motion": {
+      "theme": "day",
+      "opening": true,
+      "meta": "#f4f6fa",
+      "canonical": "https://yueb1ng.com/"
+    },
+    "404": {
+      "overflow": false,
+      "home": "/"
+    },
+    "desktop_404": {
+      "overflow": false,
+      "heading": "Lost in a little space"
+    },
+    "actual_X_app_tested": false,
+    "actual_X_card_rendered": false
+  },
+  "cleanup": {
+    "local_bytes": 562842461,
+    "server_bytes": 751583717,
+    "local_files": [
+      {
+        "name": ".tools/web-polish-qa",
+        "bytes": 562824606,
+        "recycled": true
+      },
+      {
+        "name": ".tools/polish-control.py",
+        "bytes": 847,
+        "recycled": true
+      },
+      {
+        "name": ".tools/polish-remote.py",
+        "bytes": 1215,
+        "recycled": true
+      },
+      {
+        "name": ".tools/polish-inspect.py",
+        "bytes": 452,
+        "recycled": true
+      },
+      {
+        "name": ".tools/polish-deploy.py",
+        "bytes": 4626,
+        "recycled": true
+      },
+      {
+        "name": ".tools/polish-clean-remote.py",
+        "bytes": 765,
+        "recycled": true
+      },
+      {
+        "name": ".tools/polish-browser-check.mjs",
+        "bytes": 5959,
+        "recycled": true
+      },
+      {
+        "name": ".tools/polish-cloud.log",
+        "bytes": 1445,
+        "recycled": true
+      },
+      {
+        "name": ".tools/polish-qa.log",
+        "bytes": 5,
+        "recycled": true
+      },
+      {
+        "name": ".tools/polish-server.log",
+        "bytes": 37,
+        "recycled": true
+      },
+      {
+        "name": ".tools/polish-server.pid",
+        "bytes": 5,
+        "recycled": true
+      },
+      {
+        "name": ".tools/polish-sockets",
+        "bytes": 313,
+        "recycled": true
+      },
+      {
+        "name": ".tools/__pycache__",
+        "bytes": 2186,
+        "recycled": true
+      }
+    ],
+    "server_directory": "polish-79ba772c4ba0",
+    "method": "Moved to Recycle Bin / Freedesktop Trash, recoverable; releases and rollback backup retained"
+  },
+  "ci": "https://github.com/YUEB1NG/website/actions/runs/41251430229",
+  "server_scheduled_playlist_update": "00:00 Asia/Shanghai, timer active"
+}
