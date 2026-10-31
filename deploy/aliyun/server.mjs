@@ -1,32 +1,15 @@
 import {createServer} from 'node:http';
-import {readFile,stat} from 'node:fs/promises';
-import {resolve,extname,sep} from 'node:path';
+import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {Readable} from 'node:stream';
 import worker from '../../dist/server/index.js';
 import {FileBucket} from './storage.mjs';
+import {createAssets} from './assets.mjs';
 
 const root=resolve(fileURLToPath(new URL('../../dist/client/',import.meta.url)));
 const data=resolve(process.env.YUEB1NG_DATA_DIR||fileURLToPath(new URL('../../.tools/aliyun-data/',import.meta.url)));
 const port=Number(process.env.PORT||3000),host=process.env.HOST||'127.0.0.1';
-const types={'.txt':'text/plain; charset=utf-8','.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.woff2':'font/woff2','.woff':'font/woff'};
-const assets={async fetch(request){
- const url=new URL(request.url);let name;
- try{name=decodeURIComponent(url.pathname);}catch{return new Response('Bad request',{status:400});}
- if(name.includes('\\')||name.includes('\0'))return new Response('Bad request',{status:400});
- const target=resolve(root,'.'+(name==='/'?'/index.html':name));
- if(target!==root&&!target.startsWith(root+sep))return new Response('Not found',{status:404});
- try{
-  if(!(await stat(target)).isFile())return new Response('Not found',{status:404});
-  let bytes=await readFile(target);
-  if(target===resolve(root,'index.html')){
-   // This mainland deployment must display its verified ICP registration.
-   const footer='<a id="registration" class="registration" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" inert>\u8fbdICP\u59072026025063\u53f7-1</a>';
-   bytes=Buffer.from(bytes.toString('utf8').replace('<!-- deployment-registration -->',footer));
-  }
-  return new Response(request.method==='HEAD'?null:bytes,{headers:{'Content-Type':types[extname(target).toLowerCase()]||'application/octet-stream','X-Content-Type-Options':'nosniff','Cache-Control':extname(target)==='.html'?'no-cache':name.startsWith('/assets/')?'public, max-age=31536000, immutable':'public, max-age=3600'}});
- }catch(e){if(e.code==='ENOENT'||e.code==='EISDIR')return new Response('Not found',{status:404});throw e;}
-}};
+const assets=createAssets(root);
 const env={BUCKET:new FileBucket(data),ASSETS:assets};
 const server=createServer(async(req,res)=>{
  try{
@@ -34,6 +17,6 @@ const server=createServer(async(req,res)=>{
   const request=new Request(new URL(req.url||'/',`http://${host}:${port}`),{method:req.method,headers:req.headers});
   const response=await worker.fetch(request,env);res.writeHead(response.status,Object.fromEntries(response.headers));
   if(response.body&&req.method!=='HEAD')Readable.fromWeb(response.body).pipe(res);else res.end();
- }catch(error){console.error('Request failed:',error.message);if(!res.headersSent)res.writeHead(500);res.end('Internal server error');}
+ }catch(error){console.error('Request failed:',error.message);if(!res.headersSent){const fallback=await assets.errorPage(new Request('http://localhost/',{method:req.method==='HEAD'?'HEAD':'GET',headers:req.headers}),500);res.writeHead(500,Object.fromEntries(fallback.headers));res.end(req.method==='HEAD'?'':await fallback.text());}else res.end();}
 });
 server.listen(port,host,()=>console.log(`YUEB1NG listening on ${host}:${port}`));

@@ -1,0 +1,39 @@
+{
+  "snapshot_at": "2026-10-30T02:22:20.623684Z",
+  "started_at": "2026-10-14T12:10:24.540000Z",
+  "last_record_at": "2026-10-30T02:22:18.185000Z",
+  "tokens": {
+    "input_tokens": 298169577,
+    "cached_input_tokens": 289164416,
+    "output_tokens": 844480,
+    "reasoning_output_tokens": 244765,
+    "total_tokens": 299014057,
+    "uncached_input_tokens": 9005161
+  },
+  "activity": {
+    "turns": 110,
+    "tool_calls": 2021,
+    "failed_tools": 166,
+    "compactions": 14
+  },
+  "warning_count": 19,
+  "timing": {
+    "snapshot_at": "2026-10-30T02:22:41.809797Z",
+    "total_active_ms": 308499235,
+    "tool_ms": 149561199,
+    "model_related_ms": 52743195,
+    "model_recorded_ms": 6183337,
+    "model_estimated_ms": 46559858,
+    "unattributed_ms": 106194841,
+    "timed_turns": 105,
+    "total_turns": 110,
+    "missing_or_invalid_tool_timing": 0,
+    "submillisecond_calls": 99
+  },
+  "scope": {
+    "tokens": "Main conversation plus related agents; repeated and cached context included",
+    "activity_and_timing": "Main conversation only",
+    "cutoff": "Independent snapshots, 21 seconds apart; not final task usage",
+    "limitations": "Five turns untimed; 19 trajectory warnings; model time includes wait estimates; not human work hours or billing"
+  }
+}

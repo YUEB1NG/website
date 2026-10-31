@@ -25,3 +25,9 @@ Already-shared URLs may retain platform-controlled cached previews.
 Run: python tests/social-preview-smoke.py https://yueb1ng.com
 This checks raw HTML, image formats/dimensions, crawler access and robots.txt;
 it does not publish a post or assert a platform has refreshed its cache.
+
+## X card refresh entry (2026-10-30)
+
+Use https://yueb1ng.com/share as a fresh sharing URL. It returns the same HTML as the homepage with no redirect; canonical stays https://yueb1ng.com/. Both crawlers and visitors receive identical content. The new image path is /social/yueb1ng-card-v2.png; the old asset remains available.
+
+A successful raw fetch does not prove an actual X card rendered. No post was sent during verification. Platform caching and remote crawler reachability can still differ. No credentials or SDK are required for these static tags.

@@ -10,4 +10,6 @@ window.addEventListener('resize',()=>{if(opening.active)opening.measure();});
 void import('./main').catch(error=>{
   console.error('Unable to start the scene',error);
   document.querySelector<HTMLElement>('#status')!.textContent='Unable to load the scene. Please reload.';
+  opening.finish();
+  window.dispatchEvent(new Event('wabi:load-failed'));
 });

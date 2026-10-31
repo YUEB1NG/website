@@ -32,6 +32,7 @@ export default {
    }catch{return new Response(null,{status:502});}
   }
   if(u.pathname.startsWith('/api/'))return json({error:'Not found'},404);
+  if(u.pathname==='/share'||u.pathname==='/share/'){const home=new URL(request.url);home.pathname='/';return env.ASSETS.fetch(new Request(home,request));}
   return env.ASSETS.fetch(request);
  }
 };

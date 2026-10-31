@@ -9,7 +9,7 @@ export class Blueprint {
   private wipeStarted=0;
   private frame=0;
   constructor(private done:()=>void){}
-  start(){cancelAnimationFrame(this.frame);this.wipeStarted=0;this.active=true;this.started=performance.now();this.overlay.hidden=false;this.overlay.classList.remove('wiping');this.overlay.style.setProperty('--wipe','0px');this.drawing.replaceChildren();this.measure();const frame=(now:number)=>{this.tick(now);if(this.active)this.frame=requestAnimationFrame(frame);};this.frame=requestAnimationFrame(frame);}
+  start(){document.documentElement.dataset.opening='true';window.dispatchEvent(new Event('wabi:chrome-change'));cancelAnimationFrame(this.frame);this.wipeStarted=0;this.active=true;this.started=performance.now();this.overlay.hidden=false;this.overlay.classList.remove('wiping');this.overlay.style.setProperty('--wipe','0px');this.drawing.replaceChildren();this.measure();const frame=(now:number)=>{this.tick(now);if(this.active)this.frame=requestAnimationFrame(frame);};this.frame=requestAnimationFrame(frame);}
   measure(){
     const existing=new Map(Array.from(this.drawing.children).map(el=>[(el as HTMLElement).dataset.key!,el as HTMLElement]));
     const counts=new Map<string,number>(),used=new Set<HTMLElement>();
@@ -41,13 +41,13 @@ export class Blueprint {
     if(!this.active)return;
     const t=now-this.started;
     if(t<this.duration||!this.ready)return;
-    if(!this.wipeStarted)this.wipeStarted=now;
+    if(!this.wipeStarted){this.wipeStarted=now;document.documentElement.dataset.opening='false';window.dispatchEvent(new Event('wabi:chrome-change'));}
     this.overlay.classList.add('wiping');
     const p=Math.min(1,(now-this.wipeStarted)/1200),ease=p*p*(3-2*p);
     this.overlay.style.setProperty('--wipe',`${ease*(window.innerHeight+3)}px`);
     if(p>=1)this.finish();
   }
-  finish(){if(!this.active)return;this.active=false;cancelAnimationFrame(this.frame);this.overlay.hidden=true;this.done();}
+  finish(){if(!this.active)return;document.documentElement.dataset.opening='false';window.dispatchEvent(new Event('wabi:chrome-change'));this.active=false;cancelAnimationFrame(this.frame);this.overlay.hidden=true;this.done();}
 }
 
 export const opening=new Blueprint(()=>window.dispatchEvent(new Event('wabi:opening-finished')));

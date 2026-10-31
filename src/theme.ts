@@ -7,7 +7,9 @@ try{const saved=localStorage.getItem(key);if(saved==='night'||saved==='day')manu
 let selected:Theme=manual??(systemTheme.matches?'night':'day');
 export function syncTheme(){
   selected=manual??(systemTheme.matches?'night':'day');
-  const color=selected==='day'?'#f4f6fa':'#000000';
+  const page=selected==='day'?'#f4f6fa':'#000000';
+  // The browser backing follows the top edge of the opening sheet, then the page.
+  const color=document.documentElement.dataset.opening==='true'?'#2e6fff':page;
   document.documentElement.dataset.theme=selected;
   document.documentElement.style.backgroundColor=color;
   document.body.style.backgroundColor=color;
@@ -22,4 +24,5 @@ export function toggleTheme(){manual=selected==='day'?'night':'day';try{localSto
 systemTheme.addEventListener('change',syncTheme);
 syncTheme();
 window.addEventListener('pageshow',syncTheme);
+window.addEventListener('wabi:chrome-change',syncTheme);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncTheme();});

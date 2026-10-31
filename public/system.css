@@ -1,0 +1,33 @@
+/* Standalone recovery pages. No framework, scene renderer or private runtime. */
+@font-face{font-family:Geist Mono;src:url('/fonts/geist-mono.woff2') format('woff2');font-display:swap}
+:root{--system-page:#f4f6fa;--system-ink:#273242;--system-muted:#657284;--system-blue:#2e6fff}
+:root[data-theme=night]{--system-page:#000;--system-ink:#f4f6fa;--system-muted:#a4b1c5}
+html.system-page,html.system-page body{margin:0;min-height:100%;background:var(--system-page);color:var(--system-ink)}
+.system-page body{min-height:100svh;display:grid;place-items:center;font:16px/1.6 Arial,sans-serif;padding:32px;box-sizing:border-box}
+.system-shell{width:min(100%,520px);text-align:center;padding:40px 0}
+.system-shell>*{animation:system-in .85s cubic-bezier(.16,1.12,.3,1) both;animation-delay:calc(var(--i,0)*85ms)}
+.system-mark{font:12px Geist Mono,monospace;letter-spacing:.12em;color:var(--system-muted);margin:0 0 36px}
+.system-orbit{width:164px;height:164px;margin:0 auto 28px;position:relative;color:var(--system-blue)}
+.system-orbit::before{content:"";position:absolute;inset:25px -24px;border:1px dotted currentColor;border-radius:50%;transform:rotate(-24deg)}
+.system-orbit pre{font:10px/1.12 Geist Mono,monospace;margin:0;padding-top:12px;letter-spacing:1px;animation:system-float 9s ease-in-out infinite}
+.system-code{font:12px Geist Mono,monospace;letter-spacing:.15em;color:var(--system-muted);margin:0 0 12px}
+.system-shell h1,.system-shell h2{font:400 clamp(26px,6vw,38px)/1.2 Arial,sans-serif;letter-spacing:-.03em;margin:0 0 16px}
+.system-description{max-width:350px;margin:0 auto 32px;color:var(--system-muted);font-size:15px}
+.system-actions{display:flex;justify-content:center;gap:24px;flex-wrap:wrap}
+.system-action{display:inline-flex;align-items:center;gap:8px;font:14px/1.4 Arial,sans-serif;color:var(--system-ink);text-decoration:none;border:0;background:transparent;padding:8px 0;cursor:pointer;transition:transform .25s,color .25s,opacity .25s}
+.system-action svg{width:17px;height:17px;transition:transform .3s}
+.system-action:hover{color:var(--system-blue);transform:translateY(-2px)}
+.system-action:hover svg{transform:translateX(-3px)}
+.system-action:active{transform:scale(.97);opacity:.65}
+.system-action:focus-visible{outline:1px solid var(--system-blue);outline-offset:6px}
+.system-shell .system-footer{font:11px Geist Mono,monospace;color:var(--system-muted);margin-top:52px}
+.system-shell.is-leaving>*{animation:system-out .24s ease both;animation-delay:0s}
+.site-fallback{position:fixed;inset:0;z-index:40;overflow:auto;display:grid;place-items:center;background:var(--system-page);color:var(--system-ink);padding:max(24px,env(safe-area-inset-top)) 24px max(24px,env(safe-area-inset-bottom));font:16px/1.6 Arial,sans-serif}
+.site-fallback[hidden]{display:none}
+.site-fallback .system-shell{box-sizing:border-box}
+@keyframes system-in{from{opacity:0;transform:translateY(14px) scale(.98);filter:blur(3px)}to{opacity:1;transform:none;filter:none}}
+@keyframes system-out{to{opacity:0;transform:translateY(-8px);filter:blur(2px)}}
+@keyframes system-float{50%{transform:translateY(-5px)}}
+@media(prefers-reduced-motion:reduce){.system-shell>*,.system-orbit pre,.system-shell.is-leaving>*{animation:none}.system-action,.system-action svg{transition:none}}
+@media(max-height:650px){.system-shell{padding:16px 0}.system-mark{margin-bottom:20px}.system-orbit{margin-bottom:14px}.system-shell .system-footer{margin-top:28px}}
+@view-transition{navigation:auto}

@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/brand/cover-ai-20261026.png" width="100%" alt="YUEB1NG website concept cover" /></p>
+<p align="center"><img src="docs/brand/cover-ascii-dither-20261029.png" width="100%" alt="YUEB1NG website concept cover" /></p>
 
 <p align="center"><a href="README.md">简体中文</a> · <b>English</b></p>
 
